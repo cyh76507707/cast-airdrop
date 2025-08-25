@@ -1,7 +1,7 @@
 import { createConfig, http, WagmiProvider } from "wagmi";
-import { base, degen, mainnet, optimism, unichain, celo } from "wagmi/chains";
+import { base, degen, mainnet, optimism, unichain } from "wagmi/chains";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { farcasterFrame } from "@farcaster/miniapp-wagmi-connector";
+import { farcasterFrameConnector } from "~/lib/farcaster.client";
 import { coinbaseWallet, metaMask } from 'wagmi/connectors';
 import { APP_NAME, APP_ICON_URL, APP_URL } from "~/lib/constants";
 import { useEffect, useState } from "react";
@@ -41,30 +41,35 @@ function useCoinbaseWalletAutoConnect() {
   return isCoinbaseWallet;
 }
 
+const connectors = [
+  coinbaseWallet({
+    appName: APP_NAME,
+    appLogoUrl: APP_ICON_URL,
+    preference: 'all',
+  }),
+  metaMask({
+    dappMetadata: {
+      name: APP_NAME,
+      url: APP_URL,
+    },
+  }),
+];
+
+// Clap 패턴과 동일하게 조건부로 farcaster connector 추가
+if (farcasterFrameConnector) {
+  connectors.push(farcasterFrameConnector());
+}
+
 export const config = createConfig({
-  chains: [base, optimism, mainnet, degen, unichain, celo],
+  chains: [base, optimism, mainnet, degen, unichain],
   transports: {
     [base.id]: http(),
     [optimism.id]: http(),
     [mainnet.id]: http(),
     [degen.id]: http(),
     [unichain.id]: http(),
-    [celo.id]: http(),
   },
-  connectors: [
-    farcasterFrame(),
-    coinbaseWallet({
-      appName: APP_NAME,
-      appLogoUrl: APP_ICON_URL,
-      preference: 'all',
-    }),
-    metaMask({
-      dappMetadata: {
-        name: APP_NAME,
-        url: APP_URL,
-      },
-    }),
-  ],
+  connectors,
 });
 
 const queryClient = new QueryClient();
