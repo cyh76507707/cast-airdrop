@@ -77,7 +77,7 @@ export function getSecretEnvVars() {
 
 export function getFrameEmbedMetadata(ogImageUrl?: string) {
   return {
-    version: "next",
+    version: "1",
     imageUrl: ogImageUrl ?? APP_OG_IMAGE_URL,
     button: {
       title: APP_BUTTON_TEXT,
@@ -96,7 +96,7 @@ export function getFrameEmbedMetadata(ogImageUrl?: string) {
   };
 }
 
-export async function getFarcasterMetadata(): Promise<FrameManifest> {
+export async function getFarcasterDomainManifest(): Promise<FrameManifest> {
   // First check for FRAME_METADATA in .env and use that if it exists
   if (process.env.FRAME_METADATA) {
     try {

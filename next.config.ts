@@ -1,9 +1,9 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // 미니앱에서 필요한 설정
+  // Mini app required settings
   experimental: {
-    // esmExternals 경고 제거
+    // Remove esmExternals warning
   },
 };
 

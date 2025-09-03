@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useFrame } from '~/components/providers/FrameProvider';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
-import { Input } from '@/components/ui/Input';
+import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/Select';
 import { LoadingCard } from '@/components/ui/LoadingSpinner';
 import { extractCastHash, getAllCastUsers, getCastByHashOrUrl, transformCastToInfo, CastUser, CastEngagement, CastInfo } from '@/lib/neynar';
@@ -16,7 +16,7 @@ import {
   generateAirdropLink,
   TokenInfo 
 } from '@/lib/mintclub';
-import { farcasterSdk } from '~/lib/farcaster.client';
+import { sdk } from '@farcaster/miniapp-sdk';
 
 type Step = 'url-input' | 'user-analysis' | 'airdrop-form' | 'summary' | 'completion';
 
@@ -28,30 +28,21 @@ interface AirdropForm {
 }
 
 export default function CastAirdropPage({ title }: { title?: string } = { title: "Cast Airdrop" }) {
-  // Frame SDK 상태 확인
-  const { isSDKLoaded, context } = useFrame();
-  
-  console.log("🔍 CastAirdropPage render - isSDKLoaded:", isSDKLoaded, "context:", context);
-  
-  // SDK 초기화 - clap-web과 동일한 패턴
-  useEffect(() => {
-    const load = async () => {
-      try {
-        console.log("🔍 Calling sdk.actions.ready()");
-        await farcasterSdk.actions.ready();
-        console.log("🔍 sdk.actions.ready() completed successfully");
-      } catch (error) {
-        console.error("🔍 Error loading Farcaster SDK:", error);
-      }
-    };
+  const { isSDKLoaded } = useFrame();
 
-    if (farcasterSdk && !isSDKLoaded) {
-      console.log("🔍 Starting load function");
-      load();
-    } else {
-      console.log("🔍 Skipping load - farcasterSdk:", !!farcasterSdk, "isSDKLoaded:", isSDKLoaded);
-    }
-  }, [isSDKLoaded]);
+  console.log("🔍 CastAirdropPage render - isSDKLoaded:", isSDKLoaded);
+
+  const [appReady, setAppReady] = useState(false);
+
+  useEffect(() => {
+    if (!isSDKLoaded || appReady) return;
+    (async () => {
+      await sdk.actions.ready();
+      setAppReady(true);
+    })();
+  }, [isSDKLoaded, appReady]);
+
+  // (Removed intermediate loader to keep hook order stable; FrameProvider gates rendering)
   
   const [currentStep, setCurrentStep] = useState<Step>('url-input');
   const [castUrl, setCastUrl] = useState('');
@@ -62,7 +53,7 @@ export default function CastAirdropPage({ title }: { title?: string } = { title:
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
-  // 각 단계별 완료 상태 추적
+  // Track completion status for each step
   const [completedSteps, setCompletedSteps] = useState<Set<Step>>(new Set(['url-input']));
   const [airdropForm, setAirdropForm] = useState<AirdropForm>({
     title: '',
@@ -72,7 +63,7 @@ export default function CastAirdropPage({ title }: { title?: string } = { title:
   });
   const [airdropLink, setAirdropLink] = useState<string | null>(null);
   
-  // Airdrop Whitelist 관련 상태
+  // Airdrop Whitelist related state
   const [selectedActions, setSelectedActions] = useState({
     likes: true,
     recasts: true,
@@ -81,18 +72,11 @@ export default function CastAirdropPage({ title }: { title?: string } = { title:
   });
   const [excludedUsers, setExcludedUsers] = useState<Set<string>>(new Set());
 
-  // SDK 초기화는 FrameProvider에서만 처리 (Clap과 동일한 패턴)
+  // SDK initialization is handled only in FrameProvider (same pattern as Clap)
 
-  // SDK 로딩 상태 체크 - Neynar 스타터킷과 동일한 패턴
-  if (!isSDKLoaded) {
-    return (
-      <div className="flex items-center justify-center h-screen">
-        <div className="text-center">
-          <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p>Loading SDK...</p>
-        </div>
-      </div>
-    );
+  // Keep splash visible until app is ready to display
+  if (!appReady) {
+    return null;
   }
 
   const handleUrlSubmit = async () => {
@@ -101,20 +85,20 @@ export default function CastAirdropPage({ title }: { title?: string } = { title:
       return;
     }
 
-    // URL 형식 기본 검증
+    // Basic URL format validation
     if (!castUrl.includes('farcaster.xyz') && !castUrl.includes('warpcast.com')) {
       setError('Please enter a valid Farcaster post URL');
       return;
     }
 
-    // Continue 버튼은 항상 새로운 데이터를 불러옴 (refresh)
+    // Continue button always loads new data (refresh)
     setLoading(true);
     setError(null);
 
     try {
       console.log('🔍 Starting analysis for URL:', castUrl);
       
-      // Cast 정보와 사용자 데이터를 한번에 가져오기
+      // Get Cast info and user data at once
       const engagementData = await getAllCastUsers(castUrl);
       const castData = await getCastByHashOrUrl(castUrl, 'url');
       const castInfoData = transformCastToInfo(castData);
@@ -124,7 +108,7 @@ export default function CastAirdropPage({ title }: { title?: string } = { title:
       setUsers(engagementData.totalUsers);
       setCastHash(castUrl);
       
-      // 새로운 데이터이므로 Airdrop Whitelist 상태도 초기화
+      // Reset Airdrop Whitelist state for new data
       setSelectedActions({
         likes: true,
         recasts: true,
@@ -133,7 +117,7 @@ export default function CastAirdropPage({ title }: { title?: string } = { title:
       });
       setExcludedUsers(new Set());
       
-      // 2단계 완료로 표시
+      // Mark step 2 as completed
       setCompletedSteps(prev => new Set([...prev, 'user-analysis']));
       
       console.log('✅ Analysis completed:', {
@@ -161,7 +145,7 @@ export default function CastAirdropPage({ title }: { title?: string } = { title:
       return;
     }
 
-    // 자동 생성된 타이틀 설정
+          // Set auto-generated title
     const autoGeneratedTitle = generateAirdropTitle();
     setAirdropForm(prev => ({ ...prev, title: autoGeneratedTitle }));
 
@@ -171,7 +155,7 @@ export default function CastAirdropPage({ title }: { title?: string } = { title:
 
 
 
-  // Airdrop Whitelist 관련 함수들
+  // Airdrop Whitelist related functions
   const getFinalUserList = () => {
     const finalUsers: CastUser[] = [];
     
@@ -188,7 +172,7 @@ export default function CastAirdropPage({ title }: { title?: string } = { title:
       finalUsers.push(...engagement!.comments);
     }
     
-    // 중복 제거 및 제외된 사용자 필터링
+          // Remove duplicates and filter excluded users
     const uniqueUsers = finalUsers.filter((user, index, self) => 
       index === self.findIndex(u => u.fid === user.fid) && 
       !excludedUsers.has(user.fid.toString())
@@ -211,21 +195,21 @@ export default function CastAirdropPage({ title }: { title?: string } = { title:
     window.open(`https://warpcast.com/${username}`, '_blank');
   };
 
-  // 자동 생성 타이틀 함수
+  // Auto-generate title function
   const generateAirdropTitle = () => {
     if (!castInfo || !selectedActions) return 'Community Airdrop';
     
     const authorName = castInfo.author.displayName || castInfo.author.username;
-    const castHash = castInfo.hash.substring(0, 10); // 해시 앞 10자리만 사용
+    const castHash = castInfo.hash.substring(0, 10); // Use only first 10 characters of hash
     
-    // 선택된 액션들 확인
+          // Check selected actions
     const selectedActionTypes = [];
     if (selectedActions.likes) selectedActionTypes.push('Like');
     if (selectedActions.recasts) selectedActionTypes.push('Recast');
     if (selectedActions.quotes) selectedActionTypes.push('Quote');
     if (selectedActions.comments) selectedActionTypes.push('Comment');
     
-    // 액션 타입에 따른 타이틀 생성
+          // Generate title based on action types
     let baseTitle;
     if (selectedActionTypes.length === 0) {
       baseTitle = `${authorName}'s Community Airdrop`;
@@ -346,7 +330,7 @@ export default function CastAirdropPage({ title }: { title?: string } = { title:
                   >
                     {index + 1}
                   </div>
-                  {/* 현재 단계만 타이틀 표시, 나머지는 번호만 */}
+                  {/* Show title for current step only, numbers for others */}
                   {isCurrent ? (
                     <span className="mt-1 text-xs sm:text-sm font-medium text-gray-700 text-center max-w-16 sm:max-w-20">
                       {step.label}
@@ -382,7 +366,7 @@ export default function CastAirdropPage({ title }: { title?: string } = { title:
           placeholder="https://farcaster.xyz/project7/0xcfc31437..."
           value={castUrl}
           onChange={(e) => setCastUrl(e.target.value)}
-          error={error}
+          error={error ?? undefined}
         />
       </CardContent>
       <CardFooter>
@@ -413,7 +397,7 @@ export default function CastAirdropPage({ title }: { title?: string } = { title:
       );
     }
 
-    // 사용자 요약 정보 생성
+          // Generate user summary info
     const formatUserList = (users: CastUser[], maxShow: number = 2) => {
       if (users.length === 0) return 'None';
       if (users.length <= maxShow) {
@@ -424,7 +408,7 @@ export default function CastAirdropPage({ title }: { title?: string } = { title:
 
     return (
       <div className="max-w-2xl mx-auto space-y-6">
-        {/* Cast 정보 */}
+        {/* Cast Information */}
         <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => window.open(castUrl, '_blank')}>
           <CardContent className="p-4">
             <div className="flex items-start space-x-4">
@@ -478,7 +462,7 @@ export default function CastAirdropPage({ title }: { title?: string } = { title:
           </CardContent>
         </Card>
 
-        {/* Engagement 요약 */}
+        {/* Engagement Summary */}
         <Card>
           <CardHeader>
             <CardTitle>Engagement Summary</CardTitle>
@@ -638,7 +622,7 @@ export default function CastAirdropPage({ title }: { title?: string } = { title:
           placeholder="Select a token"
         />
         
-        {/* 선택된 토큰 정보 표시 */}
+        {/* Display selected token information */}
         {airdropForm.tokenAddress && airdropForm.tokenAddress !== 'custom' && (
           <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
             <p className="text-sm text-blue-800">

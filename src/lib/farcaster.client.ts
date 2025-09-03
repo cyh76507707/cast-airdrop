@@ -1,5 +1,5 @@
-import sdk from "@farcaster/frame-sdk";
-import farcasterFrame from "@farcaster/frame-wagmi-connector";
+export { sdk } from "@farcaster/miniapp-sdk";
 
-export const farcasterSdk = sdk;
-export const farcasterFrameConnector = farcasterFrame;
+// Optional Farcaster connector placeholder to avoid import errors in environments
+// where a Frame connector is not provided. Downstream code should guard usage.
+export const farcasterFrameConnector: undefined = undefined;
