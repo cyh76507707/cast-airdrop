@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { farcasterSdk as sdk, type Context, type FrameNotificationDetails } from "~/lib/farcaster.client";
+import { farcasterSdk as sdk } from "~/lib/farcaster.client";
+import type { Context, FrameNotificationDetails } from "@farcaster/frame-sdk";
 import { createStore } from "mipd";
 import React from "react";
 
@@ -65,14 +66,13 @@ export function useFrame() {
   useEffect(() => {
     const load = async () => {
       try {
-        // Clap 패턴과 동일하게 ready() 먼저 호출
-        console.log("Calling sdk.actions.ready()");
-        await sdk.actions.ready();
-        console.log("sdk.actions.ready() completed successfully");
-
+        console.log("🔍 FrameProvider: Starting context loading...");
+        // ready()는 page.tsx에서 호출하므로 여기서는 제거
         const context = await sdk.context;
+        console.log("🔍 FrameProvider: Context loaded:", context);
         setContext(context);
         setIsSDKLoaded(true);
+        console.log("🔍 FrameProvider: isSDKLoaded set to true");
 
         // Set up event listeners
         sdk.on("frameAdded", ({ notificationDetails }) => {
@@ -146,11 +146,15 @@ export function useFrame() {
 
 export function FrameProvider({ children }: { children: React.ReactNode }) {
   const frameContext = useFrame();
+  
+  console.log("🔍 FrameProvider render - isSDKLoaded:", frameContext.isSDKLoaded);
 
   if (!frameContext.isSDKLoaded) {
+    console.log("🔍 FrameProvider: Still loading, showing loading div");
     return <div>Loading...</div>;
   }
 
+  console.log("🔍 FrameProvider: SDK loaded, rendering children");
   return (
     <FrameContext.Provider value={frameContext}>
       {children}

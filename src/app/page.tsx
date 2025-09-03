@@ -16,6 +16,7 @@ import {
   generateAirdropLink,
   TokenInfo 
 } from '@/lib/mintclub';
+import { farcasterSdk } from '~/lib/farcaster.client';
 
 type Step = 'url-input' | 'user-analysis' | 'airdrop-form' | 'summary' | 'completion';
 
@@ -29,6 +30,28 @@ interface AirdropForm {
 export default function CastAirdropPage({ title }: { title?: string } = { title: "Cast Airdrop" }) {
   // Frame SDK 상태 확인
   const { isSDKLoaded, context } = useFrame();
+  
+  console.log("🔍 CastAirdropPage render - isSDKLoaded:", isSDKLoaded, "context:", context);
+  
+  // SDK 초기화 - clap-web과 동일한 패턴
+  useEffect(() => {
+    const load = async () => {
+      try {
+        console.log("🔍 Calling sdk.actions.ready()");
+        await farcasterSdk.actions.ready();
+        console.log("🔍 sdk.actions.ready() completed successfully");
+      } catch (error) {
+        console.error("🔍 Error loading Farcaster SDK:", error);
+      }
+    };
+
+    if (farcasterSdk && !isSDKLoaded) {
+      console.log("🔍 Starting load function");
+      load();
+    } else {
+      console.log("🔍 Skipping load - farcasterSdk:", !!farcasterSdk, "isSDKLoaded:", isSDKLoaded);
+    }
+  }, [isSDKLoaded]);
   
   const [currentStep, setCurrentStep] = useState<Step>('url-input');
   const [castUrl, setCastUrl] = useState('');
