@@ -14,9 +14,13 @@ import {
   generateMerkleRoot, 
   createAirdrop, 
   generateAirdropLink,
-  TokenInfo 
+  TokenInfo,
+  TokenBalance,
+  getTokenBalance
 } from '@/lib/mintclub';
 import { sdk } from '@farcaster/miniapp-sdk';
+import { Header } from '@/components/Header';
+import { WalletInfo } from '@/components/WalletConnect';
 
 type Step = 'url-input' | 'user-analysis' | 'airdrop-form' | 'summary' | 'completion';
 
@@ -33,6 +37,18 @@ export default function CastAirdropPage({ title }: { title?: string } = { title:
   console.log("🔍 CastAirdropPage render - isSDKLoaded:", isSDKLoaded);
 
   const [appReady, setAppReady] = useState(false);
+  const [currentWallet, setCurrentWallet] = useState<WalletInfo | undefined>();
+
+  // Wallet connection related functions
+  const handleWalletConnect = (wallet: WalletInfo) => {
+    setCurrentWallet(wallet);
+    console.log('Wallet connected:', wallet);
+  };
+
+  const handleWalletDisconnect = () => {
+    setCurrentWallet(undefined);
+    console.log('Wallet disconnected');
+  };
 
   useEffect(() => {
     if (!isSDKLoaded || appReady) return;
@@ -62,6 +78,7 @@ export default function CastAirdropPage({ title }: { title?: string } = { title:
     endTime: '',
   });
   const [airdropLink, setAirdropLink] = useState<string | null>(null);
+  const [tokenBalance, setTokenBalance] = useState<TokenBalance | null>(null);
   
   // Airdrop Whitelist related state
   const [selectedActions, setSelectedActions] = useState({
@@ -72,12 +89,113 @@ export default function CastAirdropPage({ title }: { title?: string } = { title:
   });
   const [excludedUsers, setExcludedUsers] = useState<Set<string>>(new Set());
 
+  // Check if user can proceed to review based on wallet connection and balance
+  const canProceedToReview = (): boolean => {
+    if (!currentWallet?.connected) return false;
+    if (!airdropForm.tokenAddress || !airdropForm.totalAmount || !airdropForm.endTime) return false;
+    
+    // Check if user has sufficient balance
+    if (tokenBalance && airdropForm.totalAmount) {
+      const requiredAmount = parseFloat(airdropForm.totalAmount);
+      const userBalance = Number(tokenBalance.formattedBalance);
+      return userBalance >= requiredAmount;
+    }
+    
+    return true;
+  };
+
+  // TokenBalanceDisplay component
+  const TokenBalanceDisplay = React.useCallback(({ 
+    tokenAddress, 
+    walletAddress, 
+    totalAmount, 
+    userCount 
+  }: { 
+    tokenAddress: string; 
+    walletAddress: string; 
+    totalAmount: string; 
+    userCount: number; 
+  }) => {
+    const [loading, setLoading] = useState(false);
+    const [balance, setBalance] = useState<TokenBalance | null>(null);
+    const [error, setError] = useState<string | null>(null);
+
+    useEffect(() => {
+      const fetchBalance = async () => {
+        if (!tokenAddress || tokenAddress === 'custom') return;
+        
+        setLoading(true);
+        setError(null);
+        
+        try {
+          const tokenInfo = PREDEFINED_TOKENS.find(token => token.address === tokenAddress);
+          if (tokenInfo) {
+            const balanceData = await getTokenBalance(tokenAddress, walletAddress, tokenInfo);
+            setBalance(balanceData);
+            // Don't update global tokenBalance here to avoid infinite loop
+          }
+        } catch (err) {
+          setError('Failed to fetch token balance');
+          console.error('Error fetching token balance:', err);
+        } finally {
+          setLoading(false);
+        }
+      };
+
+      fetchBalance();
+    }, [tokenAddress, walletAddress]);
+
+    if (loading) {
+      return <div className="text-sm text-gray-600">Loading balance...</div>;
+    }
+
+    if (error) {
+      return <div className="text-sm text-red-600">Error: {error}</div>;
+    }
+
+    if (!balance) {
+      return <div className="text-sm text-gray-600">Balance not available</div>;
+    }
+
+    const requiredAmount = totalAmount ? parseFloat(totalAmount) : 0;
+    const userBalance = Number(balance.formattedBalance);
+    const hasSufficientBalance = requiredAmount > 0 && userBalance >= requiredAmount;
+
+    return (
+      <div className="mt-3 space-y-2">
+        <div className="flex justify-between text-sm">
+          <span className="text-gray-700 font-medium">Your Balance:</span>
+          <span className="font-semibold text-gray-900">{balance.formattedBalance} {balance.token.symbol}</span>
+        </div>
+        <div className="flex justify-between text-sm">
+          <span className="text-gray-700 font-medium">Required Amount:</span>
+          <span className="font-semibold text-gray-900">{requiredAmount} {balance.token.symbol}</span>
+        </div>
+        <div className="flex justify-between text-sm">
+          <span className="text-gray-700 font-medium">Per User:</span>
+          <span className="font-semibold text-gray-900">
+            {userCount > 0 ? (requiredAmount / userCount).toFixed(4) : '0'} {balance.token.symbol}
+          </span>
+        </div>
+        
+        {!hasSufficientBalance && requiredAmount > 0 && (
+          <div className="p-2 bg-red-50 border border-red-200 rounded text-sm text-red-700">
+            ⚠️ Insufficient balance. You need {(requiredAmount - userBalance).toFixed(4)} more {balance.token.symbol}
+          </div>
+        )}
+      </div>
+    );
+  }, []);
+
   // SDK initialization is handled only in FrameProvider (same pattern as Clap)
 
   // Keep splash visible until app is ready to display
   if (!appReady) {
     return null;
   }
+
+    // Show wallet connection requirement message if wallet is not connected
+  const showWalletRequirement = !currentWallet?.connected && currentStep === 'airdrop-form';
 
   const handleUrlSubmit = async () => {
     if (!castUrl.trim()) {
@@ -229,6 +347,11 @@ export default function CastAirdropPage({ title }: { title?: string } = { title:
   const handleCreateAirdrop = async () => {
     if (!users.length) {
       setError('No eligible users found');
+      return;
+    }
+
+    if (!currentWallet?.connected) {
+      setError('Wallet is not connected. Please connect your wallet.');
       return;
     }
 
@@ -599,72 +722,110 @@ export default function CastAirdropPage({ title }: { title?: string } = { title:
     );
   };
 
-  const renderAirdropForm = () => (
-    <Card className="max-w-md mx-auto">
-      <CardHeader>
-        <CardTitle>Configure Airdrop</CardTitle>
-        <CardDescription>
-          Set up your airdrop parameters and token distribution.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <Select
-          label="Token"
-          options={[
-            ...PREDEFINED_TOKENS.map(token => ({
-              value: token.address,
-              label: `${token.name} (${token.symbol})`
-            })),
-            { value: 'custom', label: 'Custom Token Address' }
-          ]}
-          value={airdropForm.tokenAddress}
-          onChange={(e) => setAirdropForm({ ...airdropForm, tokenAddress: e.target.value })}
-          placeholder="Select a token"
-        />
-        
-        {/* Display selected token information */}
-        {airdropForm.tokenAddress && airdropForm.tokenAddress !== 'custom' && (
-          <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
-            <p className="text-sm text-blue-800">
-              Selected: {PREDEFINED_TOKENS.find(token => token.address === airdropForm.tokenAddress)?.name || 'Unknown Token'}
-            </p>
-          </div>
-        )}
+  const renderAirdropForm = () => {
+    // Check if wallet is connected
+    if (!currentWallet?.connected) {
+      return (
+        <Card className="max-w-md mx-auto">
+          <CardHeader>
+            <CardTitle>Wallet Connection Required</CardTitle>
+            <CardDescription>
+              You need to connect your wallet to configure the airdrop.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+              <p className="text-sm text-yellow-800">
+                Please connect your wallet using the "Connect Wallet" button in the header.
+              </p>
+            </div>
+          </CardContent>
+          <CardFooter>
+            <Button 
+              onClick={() => window.location.reload()}
+              className="w-full"
+            >
+              Refresh Page
+            </Button>
+          </CardFooter>
+        </Card>
+      );
+    }
 
-        {airdropForm.tokenAddress === 'custom' && (
-          <Input
-            label="Custom Token Address"
-            placeholder="0x..."
+    return (
+      <Card className="max-w-md mx-auto">
+        <CardHeader>
+          <CardTitle>Configure Airdrop</CardTitle>
+          <CardDescription>
+            Set up your airdrop parameters and token distribution.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <Select
+            label="Token"
+            options={[
+              ...PREDEFINED_TOKENS.map(token => ({
+                value: token.address,
+                label: `${token.name} (${token.symbol})`
+              })),
+              { value: 'custom', label: 'Custom Token Address' }
+            ]}
+            value={airdropForm.tokenAddress}
             onChange={(e) => setAirdropForm({ ...airdropForm, tokenAddress: e.target.value })}
+            placeholder="Select a token"
           />
-        )}
+          
+          {/* Display selected token information and balance */}
+          {airdropForm.tokenAddress && airdropForm.tokenAddress !== 'custom' && (
+            <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+              <p className="text-sm font-medium text-blue-900 mb-2">
+                Selected: {PREDEFINED_TOKENS.find(token => token.address === airdropForm.tokenAddress)?.name || 'Unknown Token'}
+              </p>
+              <TokenBalanceDisplay 
+                tokenAddress={airdropForm.tokenAddress}
+                walletAddress={currentWallet.address}
+                totalAmount={airdropForm.totalAmount}
+                userCount={users.length}
+              />
+            </div>
+          )}
 
-        <Input
-          label="Total Amount"
-          type="number"
-          placeholder="1000"
-          value={airdropForm.totalAmount}
-          onChange={(e) => setAirdropForm({ ...airdropForm, totalAmount: e.target.value })}
-          helperText={`Each user will receive ${airdropForm.totalAmount && users.length ? (parseFloat(airdropForm.totalAmount) / users.length).toFixed(2) : '0'} tokens`}
-        />
+          {airdropForm.tokenAddress === 'custom' && (
+            <Input
+              label="Custom Token Address"
+              placeholder="0x..."
+              onChange={(e) => setAirdropForm({ ...airdropForm, tokenAddress: e.target.value })}
+            />
+          )}
 
-        <Input
-          label="End Date"
-          type="datetime-local"
-          value={airdropForm.endTime}
-          onChange={(e) => setAirdropForm({ ...airdropForm, endTime: e.target.value })}
-        />
-      </CardContent>
-      <CardFooter>
-        <Button 
-          onClick={handleAirdropFormSubmit}
-          className="w-full"
-        >
-          Review Airdrop
-        </Button>
-      </CardFooter>
-    </Card>
-  );
+          <Input
+            label="Total Amount"
+            type="number"
+            placeholder="1000"
+            value={airdropForm.totalAmount}
+            onChange={(e) => setAirdropForm({ ...airdropForm, totalAmount: e.target.value })}
+            helperText={`Each user will receive ${airdropForm.totalAmount && users.length ? (parseFloat(airdropForm.totalAmount) / users.length).toFixed(2) : '0'} tokens`}
+          />
+
+          <Input
+            label="End Date"
+            type="datetime-local"
+            value={airdropForm.endTime}
+            onChange={(e) => setAirdropForm({ ...airdropForm, endTime: e.target.value })}
+          />
+        </CardContent>
+        <CardFooter>
+          <Button 
+            onClick={handleAirdropFormSubmit}
+            className="w-full"
+            disabled={!canProceedToReview()}
+          >
+            Review Airdrop
+          </Button>
+        </CardFooter>
+      </Card>
+    );
+  };
 
   const renderSummary = () => (
     <Card className="max-w-md mx-auto">
@@ -773,12 +934,19 @@ export default function CastAirdropPage({ title }: { title?: string } = { title:
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8 px-4">
-      <div className="max-w-4xl mx-auto">
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Cast Airdrop</h1>
-          <p className="text-gray-600">Create airdrops for users who engage with your Farcaster posts</p>
-        </div>
+    <div className="min-h-screen bg-gray-50">
+      <Header
+        currentWallet={currentWallet}
+        onWalletConnect={handleWalletConnect}
+        onWalletDisconnect={handleWalletDisconnect}
+      />
+      
+      <div className="py-8 px-4">
+        <div className="max-w-4xl mx-auto">
+          <div className="text-center mb-8">
+            <h1 className="text-3xl font-bold text-gray-900 mb-2">Cast Airdrop</h1>
+            <p className="text-gray-600">Create airdrops for users who engage with your Farcaster posts</p>
+          </div>
 
 
 
@@ -790,6 +958,7 @@ export default function CastAirdropPage({ title }: { title?: string } = { title:
             <p className="text-sm text-red-800">{error}</p>
           </div>
         )}
+        </div>
       </div>
     </div>
   );

@@ -20,7 +20,13 @@ export interface TokenInfo {
   isERC20: boolean;
 }
 
-// 사전 정의된 토큰 목록 (Base 네트워크)
+export interface TokenBalance {
+  token: TokenInfo;
+  balance: bigint;
+  formattedBalance: string;
+}
+
+// Predefined token list (Base network)
 export const PREDEFINED_TOKENS: TokenInfo[] = [
   {
     address: '0x4200000000000000000000000000000000000006',
@@ -40,6 +46,20 @@ export const PREDEFINED_TOKENS: TokenInfo[] = [
     address: '0x2Ae3F1Ec7F1F5012CFEab0185bfc7aa3cf0DEc22',
     name: 'Coinbase Wrapped Staked ETH',
     symbol: 'cbETH',
+    decimals: 18,
+    isERC20: true,
+  },
+  {
+    address: '0x37f0c2915CeCC7e977183B8543Fc0864d03E064C',
+    name: 'HUNT',
+    symbol: 'HUNT',
+    decimals: 18,
+    isERC20: true,
+  },
+  {
+    address: '0xFf45161474C39cB00699070Dd49582e417b57a7E',
+    name: 'MT',
+    symbol: 'MT',
     decimals: 18,
     isERC20: true,
   },
@@ -122,14 +142,14 @@ export function isValidTokenAddress(address: string): boolean {
   return /^0x[a-fA-F0-9]{40}$/.test(address);
 }
 
-// 사용자 정의 토큰 정보 가져오기 (실제로는 토큰 컨트랙트에서 가져와야 함)
+// Get custom token info (in real implementation, should fetch from token contract)
 export async function getTokenInfo(address: string): Promise<TokenInfo | null> {
   if (!isValidTokenAddress(address)) {
     return null;
   }
   
-  // 실제 구현에서는 토큰 컨트랙트의 name(), symbol(), decimals() 함수를 호출해야 함
-  // 여기서는 기본값을 반환
+  // In real implementation, should call name(), symbol(), decimals() functions from token contract
+  // Here returning default values
   return {
     address,
     name: 'Custom Token',
@@ -137,4 +157,35 @@ export async function getTokenInfo(address: string): Promise<TokenInfo | null> {
     decimals: 18,
     isERC20: true,
   };
+}
+
+// Get token balance for a specific wallet
+export async function getTokenBalance(
+  tokenAddress: string, 
+  walletAddress: string,
+  tokenInfo: TokenInfo
+): Promise<TokenBalance | null> {
+  try {
+    // For demo purposes, return a fixed balance for HUNT token
+    // In real implementation, this should call the token contract's balanceOf function
+    let demoBalance: bigint;
+    
+    if (tokenInfo.symbol === 'HUNT') {
+      demoBalance = BigInt(Math.floor(150.1 * 10 ** tokenInfo.decimals)); // 150.1 HUNT
+    } else if (tokenInfo.symbol === 'MT') {
+      demoBalance = BigInt(Math.floor(100 * 10 ** tokenInfo.decimals)); // 100 MT
+    } else {
+      // For other tokens, use a reasonable demo balance
+      demoBalance = BigInt(Math.floor(1000 * 10 ** tokenInfo.decimals));
+    }
+    
+    return {
+      token: tokenInfo,
+      balance: demoBalance,
+      formattedBalance: (Number(demoBalance) / 10 ** tokenInfo.decimals).toFixed(4)
+    };
+  } catch (error) {
+    console.error('Error getting token balance:', error);
+    return null;
+  }
 }
