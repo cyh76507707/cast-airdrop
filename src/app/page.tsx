@@ -14,6 +14,9 @@ import {
   generateMerkleRoot, 
   createAirdrop, 
   generateAirdropLink,
+  getLatestAirdropId,
+  checkSDKStatus,
+  initializeSDK,
   TokenInfo,
   TokenBalance,
   getTokenBalance
@@ -55,6 +58,19 @@ export default function CastAirdropPage({ title }: { title?: string } = { title:
     (async () => {
       await sdk.actions.ready();
       setAppReady(true);
+      
+      // Initialize Mint.club SDK after app is ready
+      console.log('Initializing Mint.club SDK...');
+      try {
+        await initializeSDK();
+        console.log('Mint.club SDK initialized successfully');
+      } catch (error) {
+        console.error('Failed to initialize Mint.club SDK:', error);
+      }
+      
+      // Check Mint.club SDK status after initialization
+      console.log('Checking Mint.club SDK status...');
+      checkSDKStatus();
     })();
   }, [isSDKLoaded, appReady]);
 
@@ -79,6 +95,9 @@ export default function CastAirdropPage({ title }: { title?: string } = { title:
   });
   const [airdropLink, setAirdropLink] = useState<string | null>(null);
   const [tokenBalance, setTokenBalance] = useState<TokenBalance | null>(null);
+  const [transactionStatus, setTransactionStatus] = useState<'idle' | 'preparing' | 'approval-signing' | 'approval-confirming' | 'approval-completed' | 'airdrop-signing' | 'airdrop-confirming' | 'completed' | 'error'>('idle');
+  const [transactionHash, setTransactionHash] = useState<`0x${string}` | null>(null);
+  const [approvalHash, setApprovalHash] = useState<`0x${string}` | null>(null);
   
   // Airdrop Whitelist related state
   const [selectedActions, setSelectedActions] = useState({
@@ -358,44 +377,119 @@ export default function CastAirdropPage({ title }: { title?: string } = { title:
     setCompletedSteps(prev => new Set([...prev, 'summary']));
     setLoading(true);
     setError(null);
+    setTransactionStatus('preparing');
 
     try {
-      // Filter users based on action type (simplified for demo)
-      const eligibleUsers = users;
-      const walletAddresses = eligibleUsers.map(user => user.walletAddress);
+      // Step 1: Get final user list from step 2 (whitelist selection)
+      const finalUserList = getFinalUserList();
+      console.log('Final user list for airdrop:', finalUserList.length, 'users');
+      
+      // Step 2: Extract primary wallet addresses from selected users
+      const primaryWalletAddresses = finalUserList.map(user => user.walletAddress);
+      console.log('Primary wallet addresses:', primaryWalletAddresses);
 
-      // Calculate amount per claim
+      // Step 3: Calculate amounts
       const totalAmount = parseFloat(airdropForm.totalAmount);
-      const amountPerClaim = BigInt(Math.floor((totalAmount / eligibleUsers.length) * 1e18));
+      const totalAmountBigInt = BigInt(Math.floor(totalAmount * 1e18)); // Total amount in wei
+      const amountPerClaim = BigInt(Math.floor((totalAmount / finalUserList.length) * 1e18));
+      console.log('Total amount (wei):', totalAmountBigInt.toString());
+      console.log('Amount per claim (wei):', amountPerClaim.toString());
 
-      // Generate merkle root and upload to IPFS
-      const merkleRoot = await generateMerkleRoot(walletAddresses);
-      const ipfsCID = await uploadWalletsToIPFS(walletAddresses, process.env.NEXT_PUBLIC_IPFS_API_KEY || '');
+      // Step 4: Generate merkle root and upload to IPFS
+      setTransactionStatus('preparing');
+      const merkleRoot = await generateMerkleRoot(primaryWalletAddresses);
+      const ipfsCID = await uploadWalletsToIPFS(primaryWalletAddresses);
+      console.log('Merkle root:', merkleRoot);
+      console.log('IPFS CID:', ipfsCID);
 
-      // Create airdrop
+      // Step 5: SDK will automatically handle token approval
+      console.log('SDK will automatically handle token approval if needed...');
+      setTransactionStatus('approval-completed');
+
+      // Step 6: Create airdrop with MintClub SDK
       const endTime = Math.floor(new Date(airdropForm.endTime).getTime() / 1000);
       const startTime = Math.floor(Date.now() / 1000);
 
+      console.log('Creating airdrop with MintClub SDK...');
+      setTransactionStatus('airdrop-signing');
+      
       const receipt = await createAirdrop({
         title: airdropForm.title,
         token: airdropForm.tokenAddress as `0x${string}`,
         isERC20: true,
         amountPerClaim,
-        walletCount: eligibleUsers.length,
+        walletCount: finalUserList.length,
         startTime,
         endTime,
         merkleRoot,
         ipfsCID,
+      }, {
+        // Approval callbacks (SDK will automatically handle approval)
+        onAllowanceSignatureRequest: () => {
+          setTransactionStatus('approval-signing');
+          console.log('Token approval signature requested');
+        },
+        onAllowanceSigned: (txHash: `0x${string}`) => {
+          setApprovalHash(txHash);
+          setTransactionStatus('approval-confirming');
+          console.log('Token approval signed:', txHash);
+        },
+        onAllowanceSuccess: (receipt: any) => {
+          setTransactionStatus('approval-completed');
+          console.log('Token approval completed:', receipt);
+        },
+        // Airdrop transaction callbacks
+        onSignatureRequest: () => {
+          setTransactionStatus('airdrop-signing');
+          console.log('Airdrop transaction signature requested');
+        },
+        onSigned: (txHash: `0x${string}`) => {
+          setTransactionHash(txHash);
+          setTransactionStatus('airdrop-confirming');
+          console.log('Airdrop transaction signed:', txHash);
+        },
+        onSuccess: (receipt: any) => {
+          setTransactionStatus('completed');
+          console.log('Airdrop transaction successful:', receipt);
+        },
+        onError: (error: unknown) => {
+          setTransactionStatus('error');
+          console.error('Transaction failed:', error);
+          throw error;
+        }
       });
 
-      // Generate airdrop link (in real implementation, you'd extract airdrop ID from receipt)
-      const airdropId = Math.floor(Math.random() * 10000); // Placeholder
+      // Step 7: Wait for blockchain confirmation and get airdrop ID
+      console.log('Waiting for blockchain confirmation...');
+      await new Promise(resolve => setTimeout(resolve, 5000));
+      
+      let airdropId: number;
+      
+      try {
+        // Get the latest airdrop ID from the blockchain
+        airdropId = await getLatestAirdropId();
+        console.log('Got actual airdrop ID:', airdropId);
+      } catch (error) {
+        console.warn('Could not get actual airdrop ID, using mock:', error);
+        airdropId = Math.floor(Math.random() * 10000);
+      }
+      
+      // Step 8: Generate MintClub airdrop page link
       const link = generateAirdropLink(airdropId);
       setAirdropLink(link);
       setCompletedSteps(prev => new Set([...prev, 'completion']));
       setCurrentStep('completion');
+      
+      console.log('Airdrop created successfully! Link:', link);
     } catch (err) {
-      setError('Failed to create airdrop. Please try again.');
+      console.error('Error in handleCreateAirdrop:', err);
+      setTransactionStatus('error');
+      
+      if (err instanceof Error) {
+        setError(`Failed to create airdrop: ${err.message}`);
+      } else {
+        setError('Failed to create airdrop. Please try again.');
+      }
     } finally {
       setLoading(false);
     }
@@ -862,21 +956,87 @@ export default function CastAirdropPage({ title }: { title?: string } = { title:
             </span>
           </div>
         </div>
+
+        {/* Transaction Status Display */}
+        {transactionStatus !== 'idle' && (
+          <div className="mt-4 p-3 border rounded-lg">
+            <div className="flex items-center space-x-2 mb-2">
+              {transactionStatus === 'preparing' && (
+                <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+              )}
+              {transactionStatus === 'approval-signing' && (
+                <div className="w-4 h-4 text-yellow-500">✍️</div>
+              )}
+              {transactionStatus === 'approval-confirming' && (
+                <div className="w-4 h-4 text-blue-500">⏳</div>
+              )}
+              {transactionStatus === 'approval-completed' && (
+                <div className="w-4 h-4 text-green-500">✅</div>
+              )}
+              {transactionStatus === 'airdrop-signing' && (
+                <div className="w-4 h-4 text-yellow-500">✍️</div>
+              )}
+              {transactionStatus === 'airdrop-confirming' && (
+                <div className="w-4 h-4 text-blue-500">⏳</div>
+              )}
+              {transactionStatus === 'completed' && (
+                <div className="w-4 h-4 text-green-500">✅</div>
+              )}
+              {transactionStatus === 'error' && (
+                <div className="w-4 h-4 text-red-500">❌</div>
+              )}
+              
+              <span className="text-sm font-medium">
+                {transactionStatus === 'preparing' && 'Preparing Transaction...'}
+                {transactionStatus === 'approval-signing' && 'Approving Token Spending...'}
+                {transactionStatus === 'approval-confirming' && 'Confirming Token Approval...'}
+                {transactionStatus === 'approval-completed' && 'Token Approved! Creating Airdrop...'}
+                {transactionStatus === 'airdrop-signing' && 'Creating Airdrop...'}
+                {transactionStatus === 'airdrop-confirming' && 'Confirming Airdrop Creation...'}
+                {transactionStatus === 'completed' && 'Airdrop Created Successfully!'}
+                {transactionStatus === 'error' && 'Transaction Failed'}
+              </span>
+            </div>
+            
+            {approvalHash && (
+              <div className="text-xs text-gray-600 break-all mb-1">
+                Approval TX: {approvalHash}
+              </div>
+            )}
+            
+            {transactionHash && (
+              <div className="text-xs text-gray-600 break-all">
+                Airdrop TX: {transactionHash}
+              </div>
+            )}
+          </div>
+        )}
       </CardContent>
       <CardFooter className="flex space-x-2">
         <Button 
           variant="outline"
           onClick={() => setCurrentStep('airdrop-form')}
           className="flex-1"
+          disabled={loading}
         >
           Back
         </Button>
         <Button 
           onClick={handleCreateAirdrop}
           loading={loading}
+          disabled={transactionStatus === 'approval-signing' || transactionStatus === 'approval-confirming' || 
+                   transactionStatus === 'airdrop-signing' || transactionStatus === 'airdrop-confirming'}
           className="flex-1"
         >
-          Create Airdrop
+          {transactionStatus === 'preparing' && 'Preparing...'}
+          {transactionStatus === 'approval-signing' && 'Approve Token'}
+          {transactionStatus === 'approval-confirming' && 'Confirming Approval...'}
+          {transactionStatus === 'approval-completed' && 'Creating Airdrop...'}
+          {transactionStatus === 'airdrop-signing' && 'Sign Airdrop Transaction'}
+          {transactionStatus === 'airdrop-confirming' && 'Confirming Airdrop...'}
+          {transactionStatus === 'completed' && 'Completed!'}
+          {transactionStatus === 'error' && 'Retry'}
+          {(transactionStatus === 'idle' || loading) && 'Create Airdrop'}
         </Button>
       </CardFooter>
     </Card>

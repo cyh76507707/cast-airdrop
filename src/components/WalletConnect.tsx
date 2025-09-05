@@ -67,7 +67,8 @@ export function WalletConnect({ onWalletConnect, onWalletDisconnect, currentWall
       // Once frame is ready, user info can be retrieved
       // In actual implementation, user info should be fetched through frame API
       // Currently using demo address for testing
-      const demoAddress = '0x1234567890123456789012345678901234567890';
+      // TODO: Get actual user address from wallet connection
+      const demoAddress = '0x0000000000000000000000000000000000000000';
       const walletInfo: WalletInfo = {
         address: demoAddress,
         type: 'farcaster',
