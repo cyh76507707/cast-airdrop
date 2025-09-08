@@ -548,32 +548,67 @@ export default function CastAirdropPage() {
   };
 
   const renderUrlInput = () => (
-    <Card className="w-full">
-      <CardHeader>
-        <CardTitle>Enter Farcaster Post URL</CardTitle>
-        <CardDescription>
-          Paste the URL of the Farcaster post you want to create an airdrop for.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <Input
-          label="Post URL"
-          placeholder="https://farcaster.xyz/project7/0xcfc31437..."
-          value={castUrl}
-          onChange={(e) => setCastUrl(e.target.value)}
-          error={error ?? undefined}
-        />
-      </CardContent>
-      <CardFooter>
-        <Button 
-          onClick={handleUrlSubmit} 
-          loading={loading}
-          className="w-full"
-        >
-          Continue
-        </Button>
-      </CardFooter>
-    </Card>
+    <div className="space-y-4">
+      {/* URL Input Card */}
+      <Card className="w-full">
+        <CardHeader>
+          <CardTitle>Enter Farcaster Post URL</CardTitle>
+          <CardDescription>
+            Paste the URL of the Farcaster post you want to create an airdrop for.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <Input
+            label="Post URL"
+            placeholder="https://farcaster.xyz/project7/0xcfc31437..."
+            value={castUrl}
+            onChange={(e) => setCastUrl(e.target.value)}
+            error={error ?? undefined}
+          />
+        </CardContent>
+        <CardFooter>
+          <Button 
+            onClick={handleUrlSubmit} 
+            loading={loading}
+            className="w-full"
+          >
+            Continue
+          </Button>
+        </CardFooter>
+      </Card>
+
+      {/* What is Cast Airdrop? Info Box */}
+      <Card className="w-full bg-blue-50 border-blue-200">
+        <CardHeader>
+          <CardTitle className="text-blue-900">What is Cast Airdrop?</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="mt-2">
+            <p className="text-sm text-blue-800">
+              Cast Airdrop allows you to reward Farcaster users who engage with your posts through likes, recasts, quotes, and comments.
+            </p>
+          </div>
+          <div className="p-2 bg-blue-100 rounded-lg">
+            <p className="text-xs text-blue-700">
+              <strong>💡 Tip:</strong> This tool helps you build stronger communities by rewarding active participants in your Farcaster discussions.
+            </p>
+          </div>
+          <div className="p-2 bg-blue-100 rounded-lg">
+            <p className="text-xs text-blue-700">
+              <strong>🔗 Powered by:</strong> Cast Airdrop is using{' '}
+              <a 
+                href="https://mint.club/airdrops" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="text-blue-600 hover:underline font-medium"
+              >
+                Mint Club Airdrop
+              </a>
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
   );
 
   const renderUserAnalysis = () => {
