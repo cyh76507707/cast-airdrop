@@ -502,56 +502,58 @@ export default function CastAirdropPage() {
       { key: 'completion', label: 'Complete' },
     ];
 
+    const currentStepData = steps.find(step => step.key === currentStep);
+
     return (
-      <div className="flex items-center justify-center mb-6">
-        <div className="flex items-center space-x-1 sm:space-x-2">
-          {steps.map((step, index) => {
-            const isCompleted = completedSteps.has(step.key as Step);
-            const isCurrent = currentStep === step.key;
-            
-            return (
-              <React.Fragment key={step.key}>
-                <div 
-                  className={cn(
-                    'flex flex-col items-center transition-colors',
-                    isCompleted ? 'cursor-pointer hover:opacity-80' : 'cursor-not-allowed opacity-50'
-                  )}
-                  onClick={() => {
-                    if (isCompleted) {
-                      setCurrentStep(step.key as Step);
-                    }
-                  }}
-                >
-                  <div
+      <div className="mb-6">
+        {/* Step numbers */}
+        <div className="flex items-center justify-center mb-4">
+          <div className="flex items-center space-x-2">
+            {steps.map((step, index) => {
+              const isCompleted = completedSteps.has(step.key as Step);
+              const isCurrent = currentStep === step.key;
+              
+              return (
+                <React.Fragment key={step.key}>
+                  <div 
                     className={cn(
-                      'w-6 h-6 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-xs sm:text-sm font-medium',
-                      isCurrent
-                        ? 'bg-blue-600 text-white'
-                        : isCompleted
-                        ? 'bg-green-500 text-white'
-                        : 'bg-gray-200 text-gray-600'
+                      'transition-colors',
+                      isCompleted ? 'cursor-pointer hover:opacity-80' : 'cursor-not-allowed opacity-50'
                     )}
+                    onClick={() => {
+                      if (isCompleted) {
+                        setCurrentStep(step.key as Step);
+                      }
+                    }}
                   >
-                    {index + 1}
-                  </div>
-                  {/* Show title for current step only, numbers for others */}
-                  {isCurrent ? (
-                    <span className="mt-1 text-xs font-medium text-gray-700 text-center max-w-12 sm:max-w-16">
-                      {step.label}
-                    </span>
-                  ) : (
-                    <span className="mt-1 text-xs text-gray-400 text-center max-w-6">
+                    <div
+                      className={cn(
+                        'w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium',
+                        isCurrent
+                          ? 'bg-blue-600 text-white'
+                          : isCompleted
+                          ? 'bg-green-500 text-white'
+                          : 'bg-gray-200 text-gray-600'
+                      )}
+                    >
                       {index + 1}
-                    </span>
+                    </div>
+                  </div>
+                  {index < steps.length - 1 && (
+                    <div className="w-4 h-0.5 bg-gray-300" />
                   )}
-                </div>
-                {index < steps.length - 1 && (
-                  <div className="w-2 sm:w-4 h-0.5 bg-gray-300" />
-                )}
-              </React.Fragment>
-            );
-          })}
+                </React.Fragment>
+              );
+            })}
+          </div>
         </div>
+        
+        {/* Current step title */}
+        {currentStepData && (
+          <div className="text-center">
+            <h2 className="text-lg font-semibold text-gray-900">{currentStepData.label}</h2>
+          </div>
+        )}
       </div>
     );
   };
@@ -614,7 +616,7 @@ export default function CastAirdropPage() {
       <div className="w-full space-y-4">
         {/* Cast Information */}
         <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => window.open(castUrl, '_blank')}>
-          <CardContent className="p-4">
+          <CardContent className="p-3">
             <div className="flex items-start space-x-3">
               <img 
                 src={castInfo.author.pfpUrl || '/default-avatar.png'} 
@@ -650,18 +652,18 @@ export default function CastAirdropPage() {
                     )}
                   </div>
                 )}
-                <div className="mt-3 flex items-center justify-between">
-                  <span className="text-xs text-gray-400">
-                    Click to view full post →
-                  </span>
-                  <div className="flex items-center space-x-4 text-xs text-gray-400">
-                    <span>❤️ {engagement.likes.length}</span>
-                    <span>🔄 {engagement.recasts.length}</span>
-                    <span>💬 {engagement.quotes.length}</span>
-                    <span>💭 {engagement.comments.length}</span>
-                  </div>
+                <div className="mt-2 flex items-center space-x-4 text-xs text-gray-400">
+                  <span>❤️ {engagement.likes.length}</span>
+                  <span>🔄 {engagement.recasts.length}</span>
+                  <span>💬 {engagement.quotes.length}</span>
+                  <span>💭 {engagement.comments.length}</span>
                 </div>
               </div>
+            </div>
+            <div className="mt-3 pt-3 border-t border-gray-100">
+              <span className="text-xs text-gray-400">
+                Click to view full post →
+              </span>
             </div>
           </CardContent>
         </Card>
@@ -1086,11 +1088,6 @@ export default function CastAirdropPage() {
       
       <div className="py-4 px-3">
         <div className="container mx-auto">
-          <div className="text-center mb-6">
-            <h1 className="text-2xl font-bold text-gray-900 mb-2">Cast Airdrop</h1>
-            <p className="text-sm text-gray-600">Create airdrops for users who engage with your Farcaster posts</p>
-          </div>
-
           {renderStepIndicator()}
           {renderCurrentStep()}
 
