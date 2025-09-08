@@ -8,10 +8,9 @@ export function Header() {
     <header className="bg-white shadow-sm border-b">
       <div className="container mx-auto px-3 py-3">
         <div className="flex items-center justify-between">
-          <div></div>
+          <h1 className="text-lg font-bold text-gray-900">Cast Airdrop</h1>
           
-          <div className="flex items-center space-x-4">
-            <h1 className="text-xl font-bold text-gray-900">Cast Airdrop</h1>
+          <div className="flex items-center">
             <ConnectButton showBalance={false} />
           </div>
         </div>

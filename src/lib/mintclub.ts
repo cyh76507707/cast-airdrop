@@ -703,6 +703,31 @@ export async function createAirdrop(
       },
     });
 
+    // Wait a bit for the approval to be fully processed on the blockchain
+    console.log("Waiting for approval to be fully processed...");
+    await new Promise(resolve => setTimeout(resolve, 2000));
+
+    // Verify allowance before proceeding
+    console.log("Verifying token allowance...");
+    const publicClient = createPublicClient({
+      chain: base,
+      transport: http(NETWORK.RPC_URL),
+    });
+
+    const currentAllowance = await publicClient.readContract({
+      address: airdropConfig.token as Address,
+      abi: ERC20_ABI,
+      functionName: "allowance",
+      args: [userAddress, MERKLE_DISTRIBUTOR_ADDRESS],
+    });
+
+    console.log("Current allowance:", currentAllowance.toString());
+    console.log("Required amount:", totalAmountWei.toString());
+
+    if (currentAllowance < totalAmountWei) {
+      throw new Error(`Insufficient allowance. Current: ${currentAllowance.toString()}, Required: ${totalAmountWei.toString()}`);
+    }
+
     // Step 2: Create airdrop
     console.log("Creating airdrop by calling MerkleDistributor contract...");
 

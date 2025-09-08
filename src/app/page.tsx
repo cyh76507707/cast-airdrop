@@ -1037,7 +1037,7 @@ export default function CastAirdropPage() {
                 <div className="w-4 h-4 text-red-500">❌</div>
               )}
               
-              <span className="text-sm font-medium">
+              <span className="text-sm font-medium text-green-600">
                 {transactionStatus === 'preparing' && 'Preparing Transaction...'}
                 {transactionStatus === 'approval-signing' && 'Approving Token Spending...'}
                 {transactionStatus === 'approval-confirming' && 'Confirming Token Approval...'}
@@ -1104,9 +1104,23 @@ export default function CastAirdropPage() {
         {airdropLink && (
           <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
             <p className="text-sm text-green-800 mb-2">Airdrop Link:</p>
-            <p className="text-sm font-mono text-green-700 break-all">{airdropLink}</p>
+            <a 
+              href={airdropLink}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-sm font-mono text-green-700 break-all hover:underline"
+            >
+              {airdropLink}
+            </a>
           </div>
         )}
+        
+        {/* Tip Box */}
+        <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+          <p className="text-sm text-blue-800">
+            <strong>💡 Tip:</strong> Copy this airdrop link and paste it in Farcaster app to let eligible users claim their tokens directly!
+          </p>
+        </div>
       </CardContent>
       <CardFooter className="flex space-x-2">
         <Button 
