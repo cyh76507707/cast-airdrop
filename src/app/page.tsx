@@ -64,11 +64,18 @@ export default function CastAirdropPage() {
   
   // Track completion status for each step
   const [completedSteps, setCompletedSteps] = useState<Set<Step>>(new Set(['url-input']));
+  // Set default end time to 1 week from now
+  const getDefaultEndTime = () => {
+    const oneWeekLater = new Date();
+    oneWeekLater.setDate(oneWeekLater.getDate() + 7);
+    return oneWeekLater.toISOString().slice(0, 16); // Format for datetime-local input
+  };
+
   const [airdropForm, setAirdropForm] = useState<AirdropForm>({
     title: '',
     tokenAddress: '',
     totalAmount: '',
-    endTime: '',
+    endTime: getDefaultEndTime(),
   });
   const [airdropLink, setAirdropLink] = useState<string | null>(null);
   const [tokenBalance, _setTokenBalance] = useState<TokenBalance | null>(null);
@@ -895,6 +902,7 @@ export default function CastAirdropPage() {
             type="datetime-local"
             value={airdropForm.endTime}
             onChange={(e) => setAirdropForm({ ...airdropForm, endTime: e.target.value })}
+            showCalendarIcon={true}
           />
         </CardContent>
         <CardFooter>
