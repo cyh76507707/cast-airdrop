@@ -15,8 +15,8 @@ export async function POST(request: NextRequest) {
 
     console.log('Generating merkle root for:', wallets.length, 'wallets');
     
-    // Sort wallets to ensure consistent ordering
-    const sortedWallets = wallets.sort();
+    // Sort wallets to ensure consistent ordering (create new array to avoid mutation)
+    const sortedWallets = [...wallets].sort();
     
     // Create leaves (hash each wallet address using getAddress for checksum format)
     // This matches mint.club-v2-web's approach exactly
