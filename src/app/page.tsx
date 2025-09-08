@@ -861,7 +861,7 @@ export default function CastAirdropPage() {
               { value: 'custom', label: 'Custom Token Address' }
             ]}
             value={airdropForm.tokenAddress}
-            onChange={(e) => setAirdropForm({ ...airdropForm, tokenAddress: e.target.value })}
+            onChange={(value) => setAirdropForm({ ...airdropForm, tokenAddress: value })}
             placeholder="Select a token"
           />
           
@@ -902,7 +902,6 @@ export default function CastAirdropPage() {
             type="datetime-local"
             value={airdropForm.endTime}
             onChange={(e) => setAirdropForm({ ...airdropForm, endTime: e.target.value })}
-            showCalendarIcon={true}
           />
         </CardContent>
         <CardFooter>
