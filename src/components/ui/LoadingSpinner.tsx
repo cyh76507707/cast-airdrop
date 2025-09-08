@@ -42,10 +42,10 @@ export function LoadingSpinner({ size = 'md', className }: LoadingSpinnerProps) 
 
 export function LoadingCard({ message = 'Loading...' }: { message?: string }) {
   return (
-    <Card className="max-w-sm mx-auto">
-      <CardContent className="flex flex-col items-center justify-center py-12">
+    <Card className="w-full">
+      <CardContent className="flex flex-col items-center justify-center py-8">
         <LoadingSpinner size="lg" className="mb-4" />
-        <p className="text-gray-600 text-center">{message}</p>
+        <p className="text-gray-600 text-center text-sm">{message}</p>
       </CardContent>
     </Card>
   );
@@ -60,15 +60,15 @@ export function Skeleton({ className }: { className?: string }) {
 
 export function SkeletonCard() {
   return (
-    <Card className="max-w-sm mx-auto">
-      <CardContent className="p-6">
-        <div className="space-y-4">
+    <Card className="w-full">
+      <CardContent className="p-4">
+        <div className="space-y-3">
           <Skeleton className="h-4 w-3/4" />
           <Skeleton className="h-4 w-1/2" />
           <Skeleton className="h-8 w-full" />
           <div className="flex space-x-2">
-            <Skeleton className="h-8 w-20" />
-            <Skeleton className="h-8 w-20" />
+            <Skeleton className="h-8 w-16" />
+            <Skeleton className="h-8 w-16" />
           </div>
         </div>
       </CardContent>
@@ -78,10 +78,10 @@ export function SkeletonCard() {
 
 export function SkeletonList({ count = 3 }: { count?: number }) {
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       {Array.from({ length: count }).map((_, i) => (
-        <div key={i} className="flex items-center space-x-4 p-4">
-          <Skeleton className="h-12 w-12 rounded-full" />
+        <div key={i} className="flex items-center space-x-3 p-3">
+          <Skeleton className="h-10 w-10 rounded-full" />
           <div className="space-y-2 flex-1">
             <Skeleton className="h-4 w-3/4" />
             <Skeleton className="h-3 w-1/2" />

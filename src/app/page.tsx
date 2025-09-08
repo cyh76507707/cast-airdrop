@@ -503,8 +503,8 @@ export default function CastAirdropPage() {
     ];
 
     return (
-      <div className="flex items-center justify-center mb-8">
-        <div className="flex items-center space-x-2 sm:space-x-4">
+      <div className="flex items-center justify-center mb-6">
+        <div className="flex items-center space-x-1 sm:space-x-2">
           {steps.map((step, index) => {
             const isCompleted = completedSteps.has(step.key as Step);
             const isCurrent = currentStep === step.key;
@@ -524,7 +524,7 @@ export default function CastAirdropPage() {
                 >
                   <div
                     className={cn(
-                      'w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium',
+                      'w-6 h-6 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-xs sm:text-sm font-medium',
                       isCurrent
                         ? 'bg-blue-600 text-white'
                         : isCompleted
@@ -536,17 +536,17 @@ export default function CastAirdropPage() {
                   </div>
                   {/* Show title for current step only, numbers for others */}
                   {isCurrent ? (
-                    <span className="mt-1 text-xs sm:text-sm font-medium text-gray-700 text-center max-w-16 sm:max-w-20">
+                    <span className="mt-1 text-xs font-medium text-gray-700 text-center max-w-12 sm:max-w-16">
                       {step.label}
                     </span>
                   ) : (
-                    <span className="mt-1 text-xs text-gray-400 text-center max-w-8">
+                    <span className="mt-1 text-xs text-gray-400 text-center max-w-6">
                       {index + 1}
                     </span>
                   )}
                 </div>
                 {index < steps.length - 1 && (
-                  <div className="w-4 sm:w-8 h-0.5 bg-gray-300" />
+                  <div className="w-2 sm:w-4 h-0.5 bg-gray-300" />
                 )}
               </React.Fragment>
             );
@@ -557,7 +557,7 @@ export default function CastAirdropPage() {
   };
 
   const renderUrlInput = () => (
-    <Card className="max-w-md mx-auto">
+    <Card className="w-full">
       <CardHeader>
         <CardTitle>Enter Farcaster Post URL</CardTitle>
         <CardDescription>
@@ -611,40 +611,40 @@ export default function CastAirdropPage() {
     };
 
     return (
-      <div className="max-w-2xl mx-auto space-y-6">
+      <div className="w-full space-y-4">
         {/* Cast Information */}
         <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => window.open(castUrl, '_blank')}>
           <CardContent className="p-4">
-            <div className="flex items-start space-x-4">
+            <div className="flex items-start space-x-3">
               <img 
                 src={castInfo.author.pfpUrl || '/default-avatar.png'} 
                 alt={castInfo.author.displayName}
-                className="w-12 h-12 rounded-full"
+                className="w-10 h-10 rounded-full flex-shrink-0"
               />
               <div className="flex-1 min-w-0">
                 <div className="flex items-center space-x-2 mb-2">
-                  <span className="font-medium text-gray-900">{castInfo.author.displayName}</span>
-                  <span className="text-gray-500">@{castInfo.author.username}</span>
+                  <span className="font-medium text-gray-900 text-sm">{castInfo.author.displayName}</span>
+                  <span className="text-gray-500 text-xs">@{castInfo.author.username}</span>
                 </div>
                 <p className="text-gray-700 text-sm leading-relaxed">
-                  {castInfo.text.length > 150 
-                    ? `${castInfo.text.substring(0, 150)}...` 
+                  {castInfo.text.length > 120 
+                    ? `${castInfo.text.substring(0, 120)}...` 
                     : castInfo.text
                   }
                 </p>
                 {castInfo.embeds.length > 0 && (
-                  <div className="mt-3 flex flex-wrap gap-2">
+                  <div className="mt-2 flex flex-wrap gap-1">
                     {castInfo.embeds.slice(0, 2).map((embed, index) => (
-                      <div key={index} className="bg-gray-50 rounded-lg px-3 py-2 text-xs">
+                      <div key={index} className="bg-gray-50 rounded-lg px-2 py-1 text-xs">
                         {embed.url && (
-                          <span className="text-blue-600 truncate block max-w-[200px]">
+                          <span className="text-blue-600 truncate block max-w-[150px]">
                             {embed.url.includes('stream.farcaster.xyz') ? '📹 Video' : '🔗 Link'}
                           </span>
                         )}
                       </div>
                     ))}
                     {castInfo.embeds.length > 2 && (
-                      <div className="bg-gray-50 rounded-lg px-3 py-2 text-xs text-gray-500">
+                      <div className="bg-gray-50 rounded-lg px-2 py-1 text-xs text-gray-500">
                         +{castInfo.embeds.length - 2} more
                       </div>
                     )}
@@ -675,22 +675,22 @@ export default function CastAirdropPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="space-y-3">
-              <div className="flex justify-between items-center p-3 bg-green-50 rounded-lg">
-                <span className="font-medium text-green-800">❤️ Like</span>
-                <span className="text-green-700">{formatUserList(engagement.likes)}</span>
+            <div className="space-y-2">
+              <div className="flex justify-between items-center p-2 bg-green-50 rounded-lg">
+                <span className="font-medium text-green-800 text-sm">❤️ Like</span>
+                <span className="text-green-700 text-xs text-right max-w-[60%]">{formatUserList(engagement.likes)}</span>
               </div>
-              <div className="flex justify-between items-center p-3 bg-blue-50 rounded-lg">
-                <span className="font-medium text-blue-800">🔄 Recast</span>
-                <span className="text-blue-700">{formatUserList(engagement.recasts)}</span>
+              <div className="flex justify-between items-center p-2 bg-blue-50 rounded-lg">
+                <span className="font-medium text-blue-800 text-sm">🔄 Recast</span>
+                <span className="text-blue-700 text-xs text-right max-w-[60%]">{formatUserList(engagement.recasts)}</span>
               </div>
-              <div className="flex justify-between items-center p-3 bg-purple-50 rounded-lg">
-                <span className="font-medium text-purple-800">💬 Quote</span>
-                <span className="text-purple-700">{formatUserList(engagement.quotes)}</span>
+              <div className="flex justify-between items-center p-2 bg-purple-50 rounded-lg">
+                <span className="font-medium text-purple-800 text-sm">💬 Quote</span>
+                <span className="text-purple-700 text-xs text-right max-w-[60%]">{formatUserList(engagement.quotes)}</span>
               </div>
-              <div className="flex justify-between items-center p-3 bg-orange-50 rounded-lg">
-                <span className="font-medium text-orange-800">💭 Comment</span>
-                <span className="text-orange-700">{formatUserList(engagement.comments)}</span>
+              <div className="flex justify-between items-center p-2 bg-orange-50 rounded-lg">
+                <span className="font-medium text-orange-800 text-sm">💭 Comment</span>
+                <span className="text-orange-700 text-xs text-right max-w-[60%]">{formatUserList(engagement.comments)}</span>
               </div>
             </div>
           </CardContent>
@@ -704,76 +704,76 @@ export default function CastAirdropPage() {
               Select which actions to include and manage the final user list
             </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-6">
+          <CardContent className="space-y-4">
             {/* Action Selection */}
             <div>
-              <h4 className="font-medium text-gray-900 mb-3">Include Users Who:</h4>
+              <h4 className="font-medium text-gray-900 mb-3 text-sm">Include Users Who:</h4>
               <div className="space-y-2">
-                <label className="flex items-center space-x-3 cursor-pointer">
+                <label className="flex items-center space-x-2 cursor-pointer">
                   <input
                     type="checkbox"
                     checked={selectedActions.likes}
                     onChange={(e) => setSelectedActions({ ...selectedActions, likes: e.target.checked })}
-                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 w-4 h-4"
                   />
-                  <span className="text-sm text-gray-700">❤️ Liked the post ({engagement.likes.length} users)</span>
+                  <span className="text-xs text-gray-700">❤️ Liked the post ({engagement.likes.length} users)</span>
                 </label>
-                <label className="flex items-center space-x-3 cursor-pointer">
+                <label className="flex items-center space-x-2 cursor-pointer">
                   <input
                     type="checkbox"
                     checked={selectedActions.recasts}
                     onChange={(e) => setSelectedActions({ ...selectedActions, recasts: e.target.checked })}
-                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 w-4 h-4"
                   />
-                  <span className="text-sm text-gray-700">🔄 Recasted the post ({engagement.recasts.length} users)</span>
+                  <span className="text-xs text-gray-700">🔄 Recasted the post ({engagement.recasts.length} users)</span>
                 </label>
-                <label className="flex items-center space-x-3 cursor-pointer">
+                <label className="flex items-center space-x-2 cursor-pointer">
                   <input
                     type="checkbox"
                     checked={selectedActions.quotes}
                     onChange={(e) => setSelectedActions({ ...selectedActions, quotes: e.target.checked })}
-                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 w-4 h-4"
                   />
-                  <span className="text-sm text-gray-700">💬 Quoted the post ({engagement.quotes.length} users)</span>
+                  <span className="text-xs text-gray-700">💬 Quoted the post ({engagement.quotes.length} users)</span>
                 </label>
-                <label className="flex items-center space-x-3 cursor-pointer">
+                <label className="flex items-center space-x-2 cursor-pointer">
                   <input
                     type="checkbox"
                     checked={selectedActions.comments}
                     onChange={(e) => setSelectedActions({ ...selectedActions, comments: e.target.checked })}
-                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 w-4 h-4"
                   />
-                  <span className="text-sm text-gray-700">💭 Commented on the post ({engagement.comments.length} users)</span>
+                  <span className="text-xs text-gray-700">💭 Commented on the post ({engagement.comments.length} users)</span>
                 </label>
               </div>
             </div>
 
             {/* Final User List */}
             <div>
-              <h4 className="font-medium text-gray-900 mb-3">
+              <h4 className="font-medium text-gray-900 mb-3 text-sm">
                 Final User List ({getFinalUserList().length} users)
               </h4>
-              <div className="max-h-60 overflow-y-auto border border-gray-200 rounded-lg p-3 space-y-2">
+              <div className="max-h-48 overflow-y-auto border border-gray-200 rounded-lg p-2 space-y-1">
                 {getFinalUserList().length === 0 ? (
-                  <p className="text-sm text-gray-500 text-center py-4">
+                  <p className="text-xs text-gray-500 text-center py-4">
                     No users selected. Please check at least one action type above.
                   </p>
                 ) : (
                   getFinalUserList().map((user) => (
-                    <div key={user.fid} className="flex items-center space-x-3 p-2 hover:bg-gray-50 rounded-lg">
+                    <div key={user.fid} className="flex items-center space-x-2 p-2 hover:bg-gray-50 rounded-lg">
                       <input
                         type="checkbox"
                         checked={!excludedUsers.has(user.fid.toString())}
                         onChange={() => toggleUserExclusion(user.fid)}
-                        className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                        className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 w-4 h-4"
                       />
                       <img
                         src={user.pfpUrl || '/default-avatar.png'}
                         alt={user.username}
-                        className="w-8 h-8 rounded-full"
+                        className="w-6 h-6 rounded-full flex-shrink-0"
                       />
                       <span 
-                        className="text-sm text-gray-700 cursor-pointer hover:text-blue-600"
+                        className="text-xs text-gray-700 cursor-pointer hover:text-blue-600 truncate"
                         onClick={() => openUserProfile(user.username)}
                       >
                         {user.username}
@@ -787,13 +787,13 @@ export default function CastAirdropPage() {
         </Card>
 
         {/* Make Airdrop Button */}
-        <div className="flex justify-center pt-6">
+        <div className="flex justify-center pt-4">
           <Button 
             onClick={() => {
               setCompletedSteps(prev => new Set([...prev, 'airdrop-form']));
               setCurrentStep('airdrop-form');
             }} 
-            className="px-8 py-3 text-lg"
+            className="w-full py-3 text-sm"
             disabled={getFinalUserList().length === 0}
           >
             Make Airdrop for them ({getFinalUserList().length} users)
@@ -807,7 +807,7 @@ export default function CastAirdropPage() {
     // Check if wallet is connected
     if (!isConnected) {
       return (
-        <Card className="max-w-md mx-auto">
+        <Card className="w-full">
           <CardHeader>
             <CardTitle>Wallet Connection Required</CardTitle>
             <CardDescription>
@@ -815,7 +815,7 @@ export default function CastAirdropPage() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+            <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
               <p className="text-sm text-yellow-800">
                 Please connect your wallet using the &quot;Connect Wallet&quot; button in the header.
               </p>
@@ -834,7 +834,7 @@ export default function CastAirdropPage() {
     }
 
     return (
-      <Card className="max-w-md mx-auto">
+      <Card className="w-full">
         <CardHeader>
           <CardTitle>Configure Airdrop</CardTitle>
           <CardDescription>
@@ -909,7 +909,7 @@ export default function CastAirdropPage() {
   };
 
   const renderSummary = () => (
-    <Card className="max-w-md mx-auto">
+    <Card className="w-full">
       <CardHeader>
         <CardTitle>Review Airdrop</CardTitle>
         <CardDescription>
@@ -1030,7 +1030,7 @@ export default function CastAirdropPage() {
   );
 
   const renderCompletion = () => (
-    <Card className="max-w-md mx-auto">
+    <Card className="w-full">
       <CardHeader>
         <CardTitle>🎉 Airdrop Created!</CardTitle>
         <CardDescription>
@@ -1084,23 +1084,21 @@ export default function CastAirdropPage() {
     <div className="min-h-screen bg-gray-50">
       <Header />
       
-      <div className="py-8 px-4">
-        <div className="max-w-4xl mx-auto">
-          <div className="text-center mb-8">
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">Cast Airdrop</h1>
-            <p className="text-gray-600">Create airdrops for users who engage with your Farcaster posts</p>
+      <div className="py-4 px-3">
+        <div className="container mx-auto">
+          <div className="text-center mb-6">
+            <h1 className="text-2xl font-bold text-gray-900 mb-2">Cast Airdrop</h1>
+            <p className="text-sm text-gray-600">Create airdrops for users who engage with your Farcaster posts</p>
           </div>
 
+          {renderStepIndicator()}
+          {renderCurrentStep()}
 
-
-        {renderStepIndicator()}
-        {renderCurrentStep()}
-
-        {error && (
-          <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg">
-            <p className="text-sm text-red-800">{error}</p>
-          </div>
-        )}
+          {error && (
+            <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+              <p className="text-sm text-red-800">{error}</p>
+            </div>
+          )}
         </div>
       </div>
     </div>

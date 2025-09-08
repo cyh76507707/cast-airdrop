@@ -55,7 +55,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
 
 function ToastContainer({ toasts, onRemove }: { toasts: Toast[]; onRemove: (id: string) => void }) {
   return (
-    <div className="fixed top-4 right-4 z-50 space-y-2 max-w-sm w-full">
+    <div className="fixed top-4 left-4 right-4 z-50 space-y-2">
       {toasts.map(toast => (
         <ToastItem key={toast.id} toast={toast} onRemove={onRemove} />
       ))}
@@ -84,17 +84,17 @@ function ToastItem({ toast, onRemove }: { toast: Toast; onRemove: (id: string) =
       className={cn(
         'transform transition-all duration-300 ease-in-out',
         isVisible ? 'translate-x-0 opacity-100' : 'translate-x-full opacity-0',
-        'bg-white dark:bg-gray-800 border rounded-lg shadow-lg p-4',
+        'bg-white dark:bg-gray-800 border rounded-lg shadow-lg p-3',
         typeStyles[toast.type || 'info']
       )}
     >
       <div className="flex items-start justify-between">
-        <div className="flex-1">
+        <div className="flex-1 min-w-0">
           {toast.title && (
             <h4 className="font-medium text-sm mb-1">{toast.title}</h4>
           )}
           {toast.description && (
-            <p className="text-sm opacity-90">{toast.description}</p>
+            <p className="text-xs opacity-90 break-words">{toast.description}</p>
           )}
         </div>
         <button
