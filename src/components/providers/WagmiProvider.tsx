@@ -1,12 +1,10 @@
-import { createConfig, http, WagmiProvider } from "wagmi";
-import { base, degen, mainnet, optimism, unichain } from "wagmi/chains";
+import { WagmiProvider } from "wagmi";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { farcasterFrameConnector } from "~/lib/farcaster.client";
-import { coinbaseWallet, metaMask } from 'wagmi/connectors';
 import { APP_NAME, APP_ICON_URL, APP_URL } from "~/lib/constants";
 import { useEffect, useState } from "react";
 import { useConnect, useAccount } from "wagmi";
 import React from "react";
+import { wagmiConfig } from "~/providers/wagmiConfig";
 
 // Custom hook for Coinbase Wallet detection and auto-connection
 function useCoinbaseWalletAutoConnect() {
@@ -41,36 +39,7 @@ function useCoinbaseWalletAutoConnect() {
   return isCoinbaseWallet;
 }
 
-const connectors = [
-  coinbaseWallet({
-    appName: APP_NAME,
-    appLogoUrl: APP_ICON_URL,
-    preference: 'all',
-  }),
-  metaMask({
-    dappMetadata: {
-      name: APP_NAME,
-      url: APP_URL,
-    },
-  }),
-];
-
-// Clap 패턴과 동일하게 조건부로 farcaster connector 추가
-if (farcasterFrameConnector) {
-  connectors.push(farcasterFrameConnector);
-}
-
-export const config = createConfig({
-  chains: [base, optimism, mainnet, degen, unichain],
-  transports: {
-    [base.id]: http(),
-    [optimism.id]: http(),
-    [mainnet.id]: http(),
-    [degen.id]: http(),
-    [unichain.id]: http(),
-  },
-  connectors,
-});
+// Connectors and transports are configured in `~/providers/wagmiConfig`.
 
 const queryClient = new QueryClient();
 
@@ -82,7 +51,7 @@ function CoinbaseWalletAutoConnect({ children }: { children: React.ReactNode }) 
 
 export default function Provider({ children }: { children: React.ReactNode }) {
   return (
-    <WagmiProvider config={config}>
+    <WagmiProvider config={wagmiConfig}>
       <QueryClientProvider client={queryClient}>
         <CoinbaseWalletAutoConnect>
           {children}
