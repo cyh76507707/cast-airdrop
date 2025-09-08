@@ -616,7 +616,7 @@ export default function CastAirdropPage() {
       <div className="w-full space-y-4">
         {/* Cast Information */}
         <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => window.open(castUrl, '_blank')}>
-          <CardContent className="p-3">
+          <CardContent>
             <div className="flex items-start space-x-3">
               <img 
                 src={castInfo.author.pfpUrl || '/default-avatar.png'} 
@@ -660,8 +660,8 @@ export default function CastAirdropPage() {
                 </div>
               </div>
             </div>
-            <div className="mt-3 pt-3 border-t border-gray-100">
-              <span className="text-xs text-gray-400">
+            <div className="mt-3 pt-3 border-t border-gray-100 text-right">
+              <span className="text-xs text-purple-600 font-medium">
                 Click to view full post →
               </span>
             </div>
