@@ -537,6 +537,10 @@ export async function approveTokenForAirdrop(
       
       console.log('Approval simulation successful, gas estimate:', request.gas);
       
+      // Add delay to avoid rate limiting
+      console.log('Waiting 2 seconds to avoid rate limiting...');
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
       // Send approval transaction via wallet client
       console.log('Sending approval transaction to MetaMask...');
       hash = await Promise.race([
@@ -582,6 +586,10 @@ export async function approveTokenForAirdrop(
       const minGasLimit = BigInt(60000); // Conservative minimum
       const finalGasLimit = gasWithBuffer > minGasLimit ? gasWithBuffer : minGasLimit;
       console.log('Final approval gas limit:', finalGasLimit.toString());
+      
+      // Add delay to avoid rate limiting
+      console.log('Waiting 2 seconds to avoid rate limiting...');
+      await new Promise(resolve => setTimeout(resolve, 2000));
       
       // Send approval transaction via MetaMask
       console.log('Sending approval transaction to MetaMask...');
@@ -780,6 +788,10 @@ export async function createAirdrop(config: AirdropConfig, callbacks?: {
       
       console.log('Airdrop simulation successful, gas estimate:', request.gas);
       
+      // Add delay to avoid rate limiting
+      console.log('Waiting 2 seconds to avoid rate limiting...');
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
       tx = await Promise.race([
         writeContract(walletClient, request),
         new Promise((_, reject) => 
@@ -833,6 +845,10 @@ export async function createAirdrop(config: AirdropConfig, callbacks?: {
       const minGasLimit = BigInt(300000); // Conservative minimum for complex contract call
       const finalGasLimit = gasWithBuffer > minGasLimit ? gasWithBuffer : minGasLimit;
       console.log('Final airdrop gas limit:', finalGasLimit.toString());
+      
+      // Add delay to avoid rate limiting
+      console.log('Waiting 2 seconds to avoid rate limiting...');
+      await new Promise(resolve => setTimeout(resolve, 2000));
       
       // Send transaction via MetaMask
       console.log('Sending airdrop transaction to MetaMask...');
