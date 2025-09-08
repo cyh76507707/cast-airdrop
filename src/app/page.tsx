@@ -318,33 +318,15 @@ export default function CastAirdropPage() {
 
   // Auto-generate title function
   const generateAirdropTitle = () => {
-    if (!castInfo || !selectedActions) return 'Community Airdrop';
+    if (!castInfo) return 'Cast Airdrop';
     
     const authorName = castInfo.author.displayName || castInfo.author.username;
-    const _castHash = castInfo.hash.substring(0, 10); // Use only first 10 characters of hash
+    const castHash = castInfo.hash.substring(0, 10); // Use only first 10 characters of hash
     
-          // Check selected actions
-    const selectedActionTypes = [];
-    if (selectedActions.likes) selectedActionTypes.push('Like');
-    if (selectedActions.recasts) selectedActionTypes.push('Recast');
-    if (selectedActions.quotes) selectedActionTypes.push('Quote');
-    if (selectedActions.comments) selectedActionTypes.push('Comment');
+    // Capitalize first letter of username
+    const capitalizedName = authorName.charAt(0).toUpperCase() + authorName.slice(1);
     
-          // Generate title based on action types
-    let baseTitle;
-    if (selectedActionTypes.length === 0) {
-      baseTitle = `${authorName}'s Community Airdrop`;
-    } else if (selectedActionTypes.length === 1) {
-      baseTitle = `${authorName}'s ${selectedActionTypes[0]} Community Airdrop`;
-    } else if (selectedActionTypes.length === 2) {
-      baseTitle = `${authorName}'s ${selectedActionTypes[0]} & ${selectedActionTypes[1]} Community Airdrop`;
-    } else if (selectedActionTypes.length === 3) {
-      baseTitle = `${authorName}'s ${selectedActionTypes[0]}, ${selectedActionTypes[1]} & ${selectedActionTypes[2]} Community Airdrop`;
-    } else {
-      baseTitle = `${authorName}'s Engagement Community Airdrop`;
-    }
-    
-    return `${baseTitle} (cast: ${castHash})`;
+    return `${capitalizedName}'s Cast Airdrop (${castHash})`;
   };
 
   const handleCreateAirdrop = async () => {
@@ -926,26 +908,64 @@ export default function CastAirdropPage() {
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="space-y-2">
-          <div className="flex justify-between">
-            <span className="text-sm text-gray-600">Title:</span>
-            <span className="text-sm font-medium">{airdropForm.title}</span>
+        <div className="mt-4 space-y-3">
+          <div className="flex justify-between items-start">
+            <span className="text-sm font-medium text-green-600">Title:</span>
+            <span className="text-sm text-gray-700 break-words text-right max-w-[70%]">
+              {airdropForm.title.split(' (')[0]}
+              {airdropForm.title.includes('(') && (
+                <span className="text-blue-600">
+                  {' ('}
+                  <a 
+                    href={castUrl} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="hover:underline"
+                  >
+                    {airdropForm.title.split('(')[1].split(')')[0]}
+                  </a>
+                  {')'}
+                </span>
+              )}
+            </span>
           </div>
-          <div className="flex justify-between">
-            <span className="text-sm text-gray-600">Token:</span>
-            <span className="text-sm font-medium">{airdropForm.tokenAddress}</span>
+          <div className="flex justify-between items-start">
+            <span className="text-sm font-medium text-green-600">Token:</span>
+            <span className="text-sm text-gray-700 text-right max-w-[70%]">
+              {(() => {
+                const tokenInfo = PREDEFINED_TOKENS.find(token => token.address === airdropForm.tokenAddress);
+                if (tokenInfo) {
+                  const shortAddress = `${airdropForm.tokenAddress.slice(0, 6)}...${airdropForm.tokenAddress.slice(-6)}`;
+                  return (
+                    <span>
+                      {tokenInfo.symbol} (
+                      <a 
+                        href={`https://basescan.org/token/${airdropForm.tokenAddress}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-blue-600 hover:underline"
+                      >
+                        {shortAddress}
+                      </a>
+                      )
+                    </span>
+                  );
+                }
+                return airdropForm.tokenAddress;
+              })()}
+            </span>
           </div>
-          <div className="flex justify-between">
-            <span className="text-sm text-gray-600">Total Amount:</span>
-            <span className="text-sm font-medium">{airdropForm.totalAmount}</span>
+          <div className="flex justify-between items-start">
+            <span className="text-sm font-medium text-green-600">Total Amount:</span>
+            <span className="text-sm text-gray-700">{airdropForm.totalAmount}</span>
           </div>
-          <div className="flex justify-between">
-            <span className="text-sm text-gray-600">Users:</span>
-            <span className="text-sm font-medium">{users.length}</span>
+          <div className="flex justify-between items-start">
+            <span className="text-sm font-medium text-green-600">Users:</span>
+            <span className="text-sm text-gray-700">{users.length}</span>
           </div>
-          <div className="flex justify-between">
-            <span className="text-sm text-gray-600">Per User:</span>
-            <span className="text-sm font-medium">
+          <div className="flex justify-between items-start">
+            <span className="text-sm font-medium text-green-600">Per User:</span>
+            <span className="text-sm text-gray-700">
               {airdropForm.totalAmount && users.length 
                 ? (parseFloat(airdropForm.totalAmount) / users.length).toFixed(2) 
                 : '0'} tokens
@@ -1008,21 +1028,13 @@ export default function CastAirdropPage() {
           </div>
         )}
       </CardContent>
-      <CardFooter className="flex space-x-2">
-        <Button 
-          variant="outline"
-          onClick={() => setCurrentStep('airdrop-form')}
-          className="flex-1"
-          disabled={loading}
-        >
-          Back
-        </Button>
+      <CardFooter className="flex flex-col space-y-3">
         <Button 
           onClick={handleCreateAirdrop}
           loading={loading}
           disabled={transactionStatus === 'approval-signing' || transactionStatus === 'approval-confirming' || 
                    transactionStatus === 'airdrop-signing' || transactionStatus === 'airdrop-confirming'}
-          className="flex-1"
+          className="w-full"
         >
           {transactionStatus === 'preparing' && 'Preparing...'}
           {transactionStatus === 'approval-signing' && 'Approve Token'}
@@ -1034,6 +1046,13 @@ export default function CastAirdropPage() {
           {transactionStatus === 'error' && 'Retry'}
           {(transactionStatus === 'idle' || loading) && 'Create Airdrop'}
         </Button>
+        <button
+          onClick={() => setCurrentStep('airdrop-form')}
+          disabled={loading}
+          className="text-sm text-gray-500 hover:text-gray-700 transition-colors self-center"
+        >
+          ← Back
+        </button>
       </CardFooter>
     </Card>
   );
