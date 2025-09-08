@@ -140,7 +140,7 @@ export const RETURN_URL: string | undefined = undefined;
 export const NETWORK = {
   BASE: "base",                    // Mint.club SDK network name
   CHAIN_ID: 8453,                 // Base Mainnet Chain ID
-  RPC_URL: "https://mainnet.base.org/",
+  RPC_URL: "https://1rpc.io/base", // Using 1RPC's free Base RPC
   EXPLORER: "https://basescan.org",
   ETH_ADDRESS: "0x4200000000000000000000000000000000000006", // Base ETH address
 } as const;
@@ -149,6 +149,11 @@ export const NETWORK = {
  * MerkleDistributor contract address on Base Mainnet
  */
 export const MERKLE_DISTRIBUTOR_ADDRESS = '0x1349A9DdEe26Fe16D0D44E35B3CB9B0CA18213a4' as `0x${string}`;
+
+/**
+ * Empty merkle root for public airdrops
+ */
+export const EMPTY_ROOT = '0x0000000000000000000000000000000000000000000000000000000000000000';
 
 // PLEASE DO NOT UPDATE THIS
 export const SIGNED_KEY_REQUEST_VALIDATOR_EIP_712_DOMAIN = {

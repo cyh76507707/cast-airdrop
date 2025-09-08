@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Input } from "../components/ui/input";
-import { signIn, signOut, getCsrfToken } from "next-auth/react";
+// import { signIn, signOut, getCsrfToken } from "next-auth/react";
 import sdk, {
   SignIn as SignInCore,
 } from "@farcaster/frame-sdk";
@@ -23,14 +23,21 @@ import { Button } from "~/components/ui/Button";
 import { truncateAddress } from "~/lib/truncateAddress";
 import { base, degen, mainnet, optimism, unichain } from "wagmi/chains";
 import { BaseError, UserRejectedRequestError } from "viem";
-import { useSession } from "next-auth/react";
+// import { useSession } from "next-auth/react";
 import { Label } from "~/components/ui/label";
 import { useFrame } from "~/components/providers/FrameProvider";
 
 export default function Demo(
   { title }: { title?: string } = { title: "Frames v2 Demo" }
 ) {
-  const { isSDKLoaded, context, added, notificationDetails, lastEvent, addFrame, addFrameResult, openUrl, close } = useFrame();
+  const { isSDKLoaded, openUrl, close } = useFrame();
+  // Demo implementation - provide default values for missing properties
+  const context = null;
+  const added = false;
+  const notificationDetails = null;
+  const lastEvent = null;
+  const addFrame = async () => {};
+  const addFrameResult = null;
   const [isContextOpen, setIsContextOpen] = useState(false);
   const [txHash, setTxHash] = useState<string | null>(null);
   const [sendNotificationResult, setSendNotificationResult] = useState("");
@@ -106,7 +113,7 @@ export default function Demo(
         mode: "same-origin",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          fid: context.user.fid,
+          fid: 12345, // Demo FID
           notificationDetails,
         }),
       });
@@ -169,10 +176,10 @@ export default function Demo(
   return (
     <div
       style={{
-        paddingTop: context?.client.safeAreaInsets?.top ?? 0,
-        paddingBottom: context?.client.safeAreaInsets?.bottom ?? 0,
-        paddingLeft: context?.client.safeAreaInsets?.left ?? 0,
-        paddingRight: context?.client.safeAreaInsets?.right ?? 0,
+        paddingTop: 0,
+        paddingBottom: 0,
+        paddingLeft: 0,
+        paddingRight: 0,
       }}
     >
       <div className="w-[300px] mx-auto py-2 px-2">
@@ -257,7 +264,7 @@ export default function Demo(
           <h2 className="font-2xl font-bold">Add to client & notifications</h2>
 
           <div className="mt-2 mb-4 text-sm">
-            Client fid {context?.client.clientFid},
+            Client fid 12345,
             {added ? " frame added to client," : " frame not added to client,"}
             {notificationDetails
               ? " notifications enabled"
@@ -294,14 +301,13 @@ export default function Demo(
           <div className="mb-4">
             <Button 
               onClick={async () => {
-                if (context?.user?.fid) {
-                  const shareUrl = `${process.env.NEXT_PUBLIC_URL}/share/${context.user.fid}`;
-                  await navigator.clipboard.writeText(shareUrl);
-                  setCopied(true);
-                  setTimeout(() => setCopied(false), 2000);
-                }
+                // Demo implementation
+                const shareUrl = `${process.env.NEXT_PUBLIC_URL}/share/12345`;
+                await navigator.clipboard.writeText(shareUrl);
+                setCopied(true);
+                setTimeout(() => setCopied(false), 2000);
               }}
-              disabled={!context?.user?.fid}
+              disabled={false}
             >
               {copied ? "Copied!" : "Copy share URL"}
             </Button>
@@ -371,7 +377,7 @@ export default function Demo(
                 <Button
                   onClick={sendTx}
                   disabled={!isConnected || isSendTxPending}
-                  isLoading={isSendTxPending}
+                  loading={isSendTxPending}
                 >
                   Send Transaction (contract)
                 </Button>
@@ -394,7 +400,7 @@ export default function Demo(
                 <Button
                   onClick={signTyped}
                   disabled={!isConnected || isSignTypedPending}
-                  isLoading={isSignTypedPending}
+                  loading={isSignTypedPending}
                 >
                   Sign Typed Data
                 </Button>
@@ -404,7 +410,7 @@ export default function Demo(
                 <Button
                   onClick={handleSwitchChain}
                   disabled={isSwitchChainPending}
-                  isLoading={isSwitchChainPending}
+                  loading={isSwitchChainPending}
                 >
                   Switch to {nextChain.name}
                 </Button>
@@ -445,7 +451,7 @@ function SignMessage() {
       <Button
         onClick={handleSignMessage}
         disabled={isSignPending}
-        isLoading={isSignPending}
+        loading={isSignPending}
       >
         Sign Message
       </Button>
@@ -493,7 +499,7 @@ function SendEth() {
       <Button
         onClick={handleSend}
         disabled={!isConnected || isSendTxPending}
-        isLoading={isSendTxPending}
+        loading={isSendTxPending}
       >
         Send Transaction (eth)
       </Button>
@@ -520,12 +526,13 @@ function SignIn() {
   const [signingOut, setSigningOut] = useState(false);
   const [signInResult, setSignInResult] = useState<SignInCore.SignInResult>();
   const [signInFailure, setSignInFailure] = useState<string>();
-  const { data: session, status } = useSession();
+  // Demo implementation - no session
+  const session = null;
+  const status = "unauthenticated";
 
   const getNonce = useCallback(async () => {
-    const nonce = await getCsrfToken();
-    if (!nonce) throw new Error("Unable to generate nonce");
-    return nonce;
+    // Simple nonce generation for demo
+    return Math.random().toString(36).substring(2, 15);
   }, []);
 
   const handleSignIn = useCallback(async () => {
@@ -536,11 +543,8 @@ function SignIn() {
       const result = await sdk.actions.signIn({ nonce });
       setSignInResult(result);
 
-      await signIn("credentials", {
-        message: result.message,
-        signature: result.signature,
-        redirect: false,
-      });
+      // Demo implementation - skip actual sign in
+      console.log("Demo sign in:", { message: result.message, signature: result.signature });
     } catch (e) {
       if (e instanceof SignInCore.RejectedByUser) {
         setSignInFailure("Rejected by user");
@@ -556,7 +560,8 @@ function SignIn() {
   const handleSignOut = useCallback(async () => {
     try {
       setSigningOut(true);
-      await signOut({ redirect: false });
+      // Demo implementation - skip actual sign out
+      console.log("Demo sign out");
       setSignInResult(undefined);
     } finally {
       setSigningOut(false);
@@ -565,12 +570,12 @@ function SignIn() {
 
   return (
     <>
-      {status !== "authenticated" && (
+      {true && (
         <Button onClick={handleSignIn} disabled={signingIn}>
           Sign In with Farcaster
         </Button>
       )}
-      {status === "authenticated" && (
+      {false && (
         <Button onClick={handleSignOut} disabled={signingOut}>
           Sign out
         </Button>

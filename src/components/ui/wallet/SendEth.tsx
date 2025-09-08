@@ -79,7 +79,7 @@ export function SendEth() {
       <Button
         onClick={sendEthTransaction}
         disabled={!isConnected || isEthTransactionPending}
-        isLoading={isEthTransactionPending}
+        loading={isEthTransactionPending}
       >
         Send Transaction (eth)
       </Button>

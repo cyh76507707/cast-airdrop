@@ -71,7 +71,7 @@ export function SignSolanaMessage({ signMessage }: SignSolanaMessageProps) {
       <Button
         onClick={handleSignMessage}
         disabled={signPending}
-        isLoading={signPending}
+        loading={signPending}
         className="mb-4"
       >
         Sign Message

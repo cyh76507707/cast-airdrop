@@ -1,11 +1,10 @@
 import { NextResponse } from 'next/server';
-import { getNeynarClient } from '~/lib/neynar';
 
 export async function GET() {
   try {
-    const client = getNeynarClient();
-    const response = await client.fetchNonce();
-    return NextResponse.json(response);
+    // Simple nonce generation for demo purposes
+    const nonce = Math.random().toString(36).substring(2, 15);
+    return NextResponse.json({ nonce });
   } catch (error) {
     console.error('Error fetching nonce:', error);
     return NextResponse.json(

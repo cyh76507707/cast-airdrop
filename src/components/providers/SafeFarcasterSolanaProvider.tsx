@@ -1,11 +1,9 @@
 import React, { createContext, useEffect, useState } from "react";
-import dynamic from "next/dynamic";
+// import dynamic from "next/dynamic";
 import { sdk } from '@farcaster/miniapp-sdk';
 
-const FarcasterSolanaProvider = dynamic(
-  () => import('@farcaster/mini-app-solana').then(mod => mod.FarcasterSolanaProvider),
-  { ssr: false }
-);
+// Solana provider disabled for demo
+const FarcasterSolanaProvider = ({ children }: { children: React.ReactNode }) => <>{children}</>;
 
 type SafeFarcasterSolanaProviderProps = {
   endpoint: string;
@@ -71,7 +69,7 @@ export function SafeFarcasterSolanaProvider({ endpoint, children }: SafeFarcaste
   return (
     <SolanaProviderContext.Provider value={{ hasSolanaProvider }}>
       {hasSolanaProvider ? (
-        <FarcasterSolanaProvider endpoint={endpoint}>
+        <FarcasterSolanaProvider>
           {children}
         </FarcasterSolanaProvider>
       ) : (

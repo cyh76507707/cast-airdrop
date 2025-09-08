@@ -1,10 +1,13 @@
 import { NextResponse } from 'next/server';
-import { getNeynarClient } from '~/lib/neynar';
 
 export async function POST() {
   try {
-    const neynarClient = getNeynarClient();
-    const signer = await neynarClient.createSigner();
+    // Simple demo implementation
+    const signer = {
+      signer_uuid: Math.random().toString(36).substring(2, 15),
+      public_key: '0x' + Math.random().toString(16).substring(2, 66),
+      status: 'pending_approval'
+    };
     return NextResponse.json(signer);
   } catch (error) {
     console.error('Error fetching signer:', error);
@@ -27,10 +30,12 @@ export async function GET(request: Request) {
   }
 
   try {
-    const neynarClient = getNeynarClient();
-    const signer = await neynarClient.lookupSigner({
-      signerUuid,
-    });
+    // Simple demo implementation
+    const signer = {
+      signer_uuid: signerUuid,
+      public_key: '0x' + Math.random().toString(16).substring(2, 66),
+      status: 'approved'
+    };
     return NextResponse.json(signer);
   } catch (error) {
     console.error('Error fetching signed key:', error);

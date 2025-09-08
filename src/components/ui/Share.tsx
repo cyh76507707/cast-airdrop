@@ -110,7 +110,7 @@ export function ShareButton({ buttonText, cast, className = '', isLoading = fals
     <Button
       onClick={handleShare}
       className={className}
-      isLoading={isLoading || isProcessing}
+      loading={isLoading || isProcessing}
       disabled={isLoadingBestFriends}
     >
       {buttonText}

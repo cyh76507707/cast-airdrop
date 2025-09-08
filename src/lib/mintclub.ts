@@ -1,65 +1,241 @@
-import { mintclub } from 'mint.club-v2-sdk';
-import { encodeFunctionData } from 'viem';
-import { NETWORK, MERKLE_DISTRIBUTOR_ADDRESS } from './constants';
+import { createPublicClient, createWalletClient, http, custom, encodeFunctionData, type Address, type Hash, parseUnits, formatUnits } from 'viem';
+import { simulateContract, writeContract } from 'viem/actions';
+import { base } from 'viem/chains';
+import { NETWORK, MERKLE_DISTRIBUTOR_ADDRESS, EMPTY_ROOT } from './constants';
 
-// Initialize SDK with Base network
-let isSDKInitialized = false;
-
-// Function to initialize SDK
-export async function initializeSDK() {
-  if (isSDKInitialized) return;
-  
+// Wei conversion function (similar to mint.club implementation)
+export function wei(num: number | string, decimals = 18): bigint {
+  const stringified = num.toString();
   try {
-    console.log('Initializing Mint.club SDK...');
-    
-    // Set network to Base Mainnet
-    mintclub.network(NETWORK.BASE);
-    
-    console.log('Mint.club SDK initialized with Base network');
-    isSDKInitialized = true;
+    return parseUnits(stringified, decimals);
   } catch (error) {
-    console.error('Failed to initialize Mint.club SDK:', error);
-    throw error;
+    console.error(`Failed to convert ${stringified} to BigInt: ${error}`);
+    return BigInt(0);
   }
 }
 
-// Function to check SDK initialization status
-export function checkSDKStatus() {
-  console.log('=== Mint.club SDK Status Check ===');
-  console.log('mintclub object:', mintclub);
-  console.log('mintclub type:', typeof mintclub);
-  console.log('mintclub keys:', mintclub ? Object.keys(mintclub) : 'undefined');
-  console.log('isSDKInitialized:', isSDKInitialized);
+// Custom wait for transaction function (similar to mint.club-v2-web)
+export async function customWaitForTransaction(
+  chainId: number,
+  tx: Hash
+): Promise<any> {
+  const publicClient = createPublicClient({
+    chain: base,
+    transport: http(NETWORK.RPC_URL),
+  });
   
-  if (mintclub && mintclub.network) {
-    console.log('mintclub.network type:', typeof mintclub.network);
-    console.log('mintclub.network keys:', Object.keys(mintclub.network));
-    
+  let receipt: any;
+  let attempts = 0;
+  const MAX_TRIES = 30;
+  
+  // Little buffer to make sure the transaction is mined
+  await new Promise(resolve => setTimeout(resolve, 2000));
+  
+  while (!receipt && attempts < MAX_TRIES) {
     try {
-      const baseNetwork = mintclub.network(NETWORK.BASE);
-      if (baseNetwork) {
-        console.log('Base network available');
-        console.log('Base network keys:', Object.keys(baseNetwork));
-        if (baseNetwork.airdrop) {
-          console.log('Base network airdrop methods:', Object.keys(baseNetwork.airdrop));
-        }
-      } else {
-        console.log('Base network NOT available');
+      receipt = await publicClient.getTransactionReceipt({ hash: tx });
+      if (receipt) {
+        break;
       }
     } catch (error) {
-      console.log('Error accessing Base network:', error);
+      // Transaction not found yet, continue waiting
     }
-  } else {
-    console.log('mintclub.network is NOT available');
+    
+    attempts++;
+    await new Promise(resolve => setTimeout(resolve, 2000));
   }
-  console.log('================================');
+  
+  if (!receipt) {
+    throw new Error('Transaction confirmation timeout');
+  }
+  
+  return receipt;
+}
+
+// MerkleDistributor contract ABI
+const MERKLE_DISTRIBUTOR_ABI = [
+  {
+    name: 'createDistribution',
+    type: 'function',
+    stateMutability: 'nonpayable',
+    inputs: [
+      { name: 'token', type: 'address' },
+      { name: 'isERC20', type: 'bool' },
+      { name: 'amountPerClaim', type: 'uint176' },
+      { name: 'walletCount', type: 'uint40' },
+      { name: 'startTime', type: 'uint40' },
+      { name: 'endTime', type: 'uint40' },
+      { name: 'merkleRoot', type: 'bytes32' },
+      { name: 'title', type: 'string' },
+      { name: 'ipfsCID', type: 'string' }
+    ],
+    outputs: []
+  },
+  {
+    name: 'claim',
+    type: 'function',
+    stateMutability: 'nonpayable',
+    inputs: [
+      { name: 'distributionId', type: 'uint256' },
+      { name: 'merkleProof', type: 'bytes32[]' }
+    ],
+    outputs: []
+  },
+  {
+    name: 'distributions',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [{ name: '', type: 'uint256' }],
+    outputs: [
+      { name: 'token', type: 'address' },
+      { name: 'isERC20', type: 'bool' },
+      { name: 'walletCount', type: 'uint40' },
+      { name: 'claimedCount', type: 'uint40' },
+      { name: 'amountPerClaim', type: 'uint176' },
+      { name: 'startTime', type: 'uint40' },
+      { name: 'endTime', type: 'uint40' },
+      { name: 'owner', type: 'address' },
+      { name: 'refundedAt', type: 'uint40' },
+      { name: 'merkleRoot', type: 'bytes32' },
+      { name: 'title', type: 'string' },
+      { name: 'ipfsCID', type: 'string' }
+    ]
+  },
+  {
+    name: 'distributionCount',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [],
+    outputs: [{ name: '', type: 'uint256' }]
+  },
+  {
+    name: 'isClaimed',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [
+      { name: 'distributionId', type: 'uint256' },
+      { name: 'wallet', type: 'address' }
+    ],
+    outputs: [{ name: '', type: 'bool' }]
+  },
+  {
+    name: 'isWhitelistOnly',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [{ name: 'distributionId', type: 'uint256' }],
+    outputs: [{ name: '', type: 'bool' }]
+  },
+  {
+    name: 'isWhitelisted',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [
+      { name: 'distributionId', type: 'uint256' },
+      { name: 'wallet', type: 'address' },
+      { name: 'merkleProof', type: 'bytes32[]' }
+    ],
+    outputs: [{ name: '', type: 'bool' }]
+  },
+  {
+    name: 'getAmountLeft',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [{ name: 'distributionId', type: 'uint256' }],
+    outputs: [{ name: '', type: 'uint256' }]
+  },
+  {
+    name: 'getAmountClaimed',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [{ name: 'distributionId', type: 'uint256' }],
+    outputs: [{ name: '', type: 'uint256' }]
+  }
+] as const;
+
+// ERC20 ABI for token operations
+const ERC20_ABI = [
+  {
+    name: 'approve',
+    type: 'function',
+    stateMutability: 'nonpayable',
+    inputs: [
+      { name: 'spender', type: 'address' },
+      { name: 'amount', type: 'uint256' }
+    ],
+    outputs: [{ name: '', type: 'bool' }]
+  },
+  {
+    name: 'allowance',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [
+      { name: 'owner', type: 'address' },
+      { name: 'spender', type: 'address' }
+    ],
+    outputs: [{ name: '', type: 'uint256' }]
+  },
+  {
+    name: 'balanceOf',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [{ name: 'account', type: 'address' }],
+    outputs: [{ name: '', type: 'uint256' }]
+  },
+  {
+    name: 'name',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [],
+    outputs: [{ name: '', type: 'string' }]
+  },
+  {
+    name: 'symbol',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [],
+    outputs: [{ name: '', type: 'string' }]
+  },
+  {
+    name: 'decimals',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [],
+    outputs: [{ name: '', type: 'uint8' }]
+  }
+] as const;
+
+// Create public client for read operations
+const publicClient = createPublicClient({
+  chain: base,
+  transport: http(NETWORK.RPC_URL)
+});
+
+// Create wallet client for write operations
+async function createWalletClientFromWindow() {
+  if (typeof window === 'undefined' || !window.ethereum) {
+    throw new Error('Wallet not connected or not in browser environment');
+  }
+
+  // Get the user's address first
+  const accounts = await window.ethereum.request({ method: 'eth_accounts' });
+  if (!accounts || accounts.length === 0) {
+    throw new Error('No wallet account found');
+  }
+  
+  const userAddress = accounts[0] as Address;
+
+  return createWalletClient({
+    chain: base,
+    transport: custom(window.ethereum), // Use MetaMask directly
+    account: userAddress
+  });
 }
 
 export interface AirdropConfig {
   title: string;
   token: string;
   isERC20: boolean;
-  amountPerClaim: bigint;
+  amountPerClaim: number; // Total amount for the entire airdrop (will be divided by walletCount)
   walletCount: number;
   startTime: number;
   endTime: number;
@@ -79,6 +255,21 @@ export interface TokenBalance {
   token: TokenInfo;
   balance: bigint;
   formattedBalance: string;
+}
+
+export interface Distribution {
+  token: Address;
+  isERC20: boolean;
+  walletCount: number;
+  claimedCount: number;
+  amountPerClaim: bigint;
+  startTime: number;
+  endTime: number;
+  owner: Address;
+  refundedAt: number;
+  merkleRoot: Hash;
+  title: string;
+  ipfsCID: string;
 }
 
 // Predefined token list (Base network)
@@ -181,13 +372,133 @@ export async function generateMerkleRoot(wallets: string[]): Promise<string> {
   }
 }
 
-// Approve token spending for airdrop using Mint.club SDK
+// Ensure we're on Base network
+async function ensureBaseNetwork(): Promise<void> {
+  if (typeof window === 'undefined' || !window.ethereum) {
+    throw new Error('Wallet not connected or not in browser environment');
+  }
+
+  const expectedChainId = '0x' + NETWORK.CHAIN_ID.toString(16); // 0x2105 for Base
+  
+  try {
+    // Check current chain
+    const chainId = await window.ethereum.request({ method: 'eth_chainId' });
+    console.log('Current chain ID:', chainId, 'Expected:', expectedChainId);
+    
+    if (chainId !== expectedChainId) {
+      console.log('Switching to Base network...');
+      
+      try {
+        await window.ethereum.request({
+          method: 'wallet_switchEthereumChain',
+          params: [{ chainId: expectedChainId }],
+        });
+        console.log('Successfully switched to Base network');
+      } catch (switchError: any) {
+        console.log('Switch failed, trying to add network...', switchError);
+        
+        // If the network doesn't exist, add it
+        if (switchError.code === 4902) {
+          await window.ethereum.request({
+            method: 'wallet_addEthereumChain',
+            params: [{
+              chainId: expectedChainId,
+              chainName: 'Base',
+              nativeCurrency: {
+                name: 'Ether',
+                symbol: 'ETH',
+                decimals: 18,
+              },
+              rpcUrls: [NETWORK.RPC_URL],
+              blockExplorerUrls: [NETWORK.EXPLORER],
+            }],
+          });
+          console.log('Successfully added Base network');
+        } else {
+          throw new Error(`Failed to switch to Base network: ${switchError.message}`);
+        }
+      }
+    } else {
+      console.log('Already on Base network');
+    }
+  } catch (error) {
+    console.error('Network switch error:', error);
+    throw new Error(`Failed to ensure Base network: ${error instanceof Error ? error.message : String(error)}`);
+  }
+}
+
+// Get user's wallet address
+async function getUserAddress(): Promise<Address> {
+  if (typeof window === 'undefined' || !window.ethereum) {
+    throw new Error('Wallet not connected or not in browser environment');
+  }
+
+  const accounts = await window.ethereum.request({ method: 'eth_accounts' });
+  if (!accounts || accounts.length === 0) {
+    throw new Error('No wallet account found');
+  }
+  
+  return accounts[0] as Address;
+}
+
+// Get token decimals
+export async function getTokenDecimals(tokenAddress: Address): Promise<number> {
+  try {
+    const publicClient = createPublicClient({
+      chain: base,
+      transport: http(NETWORK.RPC_URL),
+    });
+    
+    const decimals = await publicClient.readContract({
+      address: tokenAddress,
+      abi: ERC20_ABI,
+      functionName: 'decimals'
+    });
+    
+    return Number(decimals);
+  } catch (error) {
+    console.error('Error getting token decimals:', error);
+    return 18; // Default to 18 decimals
+  }
+}
+
+// Check token allowance
+export async function checkTokenAllowance(userAddress: Address, tokenAddress: Address, requiredAmount: bigint): Promise<boolean> {
+  try {
+    console.log('Checking token allowance:', { userAddress, tokenAddress, requiredAmount: requiredAmount.toString() });
+    
+    const publicClient = createPublicClient({
+      chain: base,
+      transport: http(NETWORK.RPC_URL),
+    });
+    
+    const allowance = await publicClient.readContract({
+      address: tokenAddress,
+      abi: ERC20_ABI,
+      functionName: 'allowance',
+      args: [userAddress, MERKLE_DISTRIBUTOR_ADDRESS]
+    });
+    
+    console.log('Current allowance:', allowance.toString(), 'Required:', requiredAmount.toString());
+    
+    const isSufficient = allowance >= requiredAmount;
+    console.log('Allowance sufficient:', isSufficient);
+    
+    return isSufficient;
+    
+  } catch (error) {
+    console.error('Error checking token allowance:', error);
+    return false;
+  }
+}
+
+// Approve token spending for airdrop
 export async function approveTokenForAirdrop(
-  tokenAddress: string,
+  tokenAddress: Address,
   totalAmount: bigint,
   callbacks?: {
     onSignatureRequest?: () => void;
-    onSigned?: (txHash: `0x${string}`) => void;
+    onSigned?: (txHash: Hash) => void;
     onSuccess?: (receipt: any) => void;
     onError?: (error: unknown) => void;
   }
@@ -195,43 +506,12 @@ export async function approveTokenForAirdrop(
   try {
     console.log('Approving token for airdrop:', { tokenAddress, totalAmount: totalAmount.toString() });
     
-    // Initialize SDK first
-    await initializeSDK();
+    // Force network switch to Base before proceeding
+    await ensureBaseNetwork();
     
-    // Check if we're in a browser environment with wallet connection
-    if (typeof window === 'undefined' || !window.ethereum) {
-      throw new Error('Wallet not connected or not in browser environment');
-    }
-
-    // Get the connected account
-    const accounts = await window.ethereum.request({ method: 'eth_accounts' });
-    if (!accounts || accounts.length === 0) {
-      throw new Error('No wallet account found');
-    }
+    const userAddress = await getUserAddress();
     
-    const userAddress = accounts[0];
     console.log('Using wallet address for approval:', userAddress);
-
-    // Check if mintclub SDK is properly loaded
-    if (!mintclub || !mintclub.network) {
-      throw new Error('Mint.club SDK not properly loaded');
-    }
-    
-    console.log('Mint.club SDK loaded successfully');
-    
-    // Get base network and token instance
-    const baseNetwork = mintclub.network(NETWORK.BASE);
-    if (!baseNetwork) {
-      throw new Error('Base network not available in Mint.club SDK');
-    }
-    
-    // Get token instance for approval
-    const tokenInstance = baseNetwork.token(tokenAddress);
-    if (!tokenInstance || !tokenInstance.approve) {
-      throw new Error('Token approval not available in Mint.club SDK');
-    }
-    
-    console.log('Token instance available for approval');
 
     // Call approval signature request callback
     if (callbacks?.onSignatureRequest) {
@@ -240,26 +520,93 @@ export async function approveTokenForAirdrop(
 
     console.log('Requesting token approval...');
     
-    // Use the actual MerkleDistributor contract address on Base
-    const airdropContractAddress = MERKLE_DISTRIBUTOR_ADDRESS;
+    // Create wallet client for transaction
+    const walletClient = await createWalletClientFromWindow();
     
-    // Approve token spending using Mint.club SDK
-    const receipt = await tokenInstance.approve({
-      spender: airdropContractAddress as `0x${string}`,
-      amount: totalAmount,
-      onSignatureRequest: () => {
-        console.log('Token approval signature requested');
-        if (callbacks?.onSignatureRequest) {
-          callbacks.onSignatureRequest();
-        }
-      },
-      onSigned: (txHash: `0x${string}`) => {
-        console.log('Token approval signed:', txHash);
-        if (callbacks?.onSigned) {
-          callbacks.onSigned(txHash);
-        }
-      },
-    });
+    // Try wagmi approach first, fallback to direct MetaMask if it fails
+    let hash: Hash;
+    
+    try {
+      console.log('Simulating approval transaction...');
+      const { request } = await simulateContract(walletClient, {
+        address: tokenAddress,
+        abi: ERC20_ABI,
+        functionName: 'approve',
+        args: [MERKLE_DISTRIBUTOR_ADDRESS, totalAmount],
+      });
+      
+      console.log('Approval simulation successful, gas estimate:', request.gas);
+      
+      // Send approval transaction via wallet client
+      console.log('Sending approval transaction to MetaMask...');
+      hash = await Promise.race([
+        writeContract(walletClient, request),
+        new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Transaction request timeout')), 120000)
+        )
+      ]) as Hash;
+      
+    } catch (wagmiError) {
+      console.warn('Wagmi approach failed, falling back to direct MetaMask:', wagmiError);
+      
+      // Fallback to direct MetaMask approach
+      console.log('Using direct MetaMask approach for approval...');
+      
+      // Encode the approve function call data
+      const data = encodeFunctionData({
+        abi: ERC20_ABI,
+        functionName: 'approve',
+        args: [MERKLE_DISTRIBUTOR_ADDRESS, totalAmount]
+      });
+      
+      // Estimate gas for approval transaction
+      console.log('Estimating gas for approval transaction...');
+      const gasEstimate = await window.ethereum.request({
+        method: 'eth_estimateGas',
+        params: [{
+          from: userAddress,
+          to: tokenAddress,
+          value: '0x0',
+          data: data,
+        }]
+      });
+      
+      console.log('Approval gas estimate:', gasEstimate);
+      
+      // Add buffer to gas estimate (20% more)
+      const gasWithBuffer = BigInt(gasEstimate) * BigInt(120) / BigInt(100);
+      console.log('Approval gas with buffer:', gasWithBuffer.toString());
+      
+      // Send approval transaction via MetaMask
+      console.log('Sending approval transaction to MetaMask...');
+      hash = await Promise.race([
+        window.ethereum.request({
+          method: 'eth_sendTransaction',
+          params: [{
+            from: userAddress,
+            to: tokenAddress,
+            value: '0x0',
+            data: data,
+            gas: '0x' + gasWithBuffer.toString(16),
+          }]
+        }),
+        new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Transaction request timeout')), 120000)
+        )
+      ]) as Hash;
+    }
+    
+    console.log('Token approval transaction sent:', hash);
+    
+    if (callbacks?.onSigned) {
+      callbacks.onSigned(hash);
+    }
+    
+    // Wait for transaction confirmation with improved timeout handling
+    console.log('Waiting for approval transaction confirmation...');
+    
+    // Use custom wait function similar to mint.club-v2-web
+    const receipt = await customWaitForTransaction(base.id, hash);
     
     console.log('Token approval completed:', receipt);
     
@@ -285,217 +632,226 @@ export async function approveTokenForAirdrop(
   }
 }
 
-// Check token allowance using Mint.club SDK
-export async function checkTokenAllowance(tokenAddress: string, requiredAmount: bigint): Promise<boolean> {
-  try {
-    console.log('Checking token allowance:', { tokenAddress, requiredAmount: requiredAmount.toString() });
-    
-    // Initialize SDK first
-    await initializeSDK();
-    
-    // Get base network and token instance
-    const baseNetwork = mintclub.network(NETWORK.BASE);
-    if (!baseNetwork) {
-      throw new Error('Base network not available in Mint.club SDK');
-    }
-    
-    const tokenInstance = baseNetwork.token(tokenAddress);
-    if (!tokenInstance || !tokenInstance.getAllowance) {
-      throw new Error('Token allowance check not available in Mint.club SDK');
-    }
-    
-    // Get current allowance using Mint.club SDK
-    let allowance;
-    
-    // First, get the user address
-    const accounts = await window.ethereum.request({ method: 'eth_accounts' });
-    if (!accounts || accounts.length === 0) {
-      throw new Error('No wallet account found');
-    }
-    const userAddress = accounts[0];
-    console.log('Using user address for allowance check:', userAddress);
-    
-    // Try different parameter combinations for getAllowance
-    try {
-      // Try 1: With owner and spender object
-      const airdropContractAddress = MERKLE_DISTRIBUTOR_ADDRESS;
-      allowance = await tokenInstance.getAllowance({
-        owner: userAddress,
-        spender: airdropContractAddress
-      });
-      console.log('Current allowance (with owner and spender):', allowance, 'Required:', requiredAmount.toString());
-    } catch (error1) {
-      console.log('getAllowance with owner and spender failed:', error1);
-      
-      // If all attempts fail, assume no allowance and proceed with approval
-      console.log('All getAllowance attempts failed, assuming no allowance');
-      allowance = '0';
-    }
-    
-    // Check if allowance is sufficient
-    const isSufficient = BigInt(allowance) >= requiredAmount;
-    console.log('Allowance sufficient:', isSufficient);
-    
-    return isSufficient;
-    
-  } catch (error) {
-    console.error('Error checking token allowance:', error);
-    // If allowance check fails, assume no allowance and proceed with approval
-    console.log('Allowance check failed, assuming no allowance');
-    return false;
-  }
-}
-
-// Create airdrop by directly calling the MerkleDistributor contract
+// Create airdrop using mint.club's verified approach
 export async function createAirdrop(config: AirdropConfig, callbacks?: {
   onAllowanceSignatureRequest?: () => void;
-  onAllowanceSigned?: (txHash: `0x${string}`) => void;
+  onAllowanceSigned?: (txHash: Hash) => void;
   onAllowanceSuccess?: (receipt: any) => void;
   onSignatureRequest?: () => void;
-  onSigned?: (txHash: `0x${string}`) => void;
+  onSigned?: (txHash: Hash) => void;
   onSuccess?: (receipt: any) => void;
   onError?: (error: unknown) => void;
 }) {
   try {
     console.log('Creating airdrop with config:', config);
     
-    // Check if we're in a browser environment with wallet connection
-    if (typeof window === 'undefined' || !window.ethereum) {
-      throw new Error('Wallet not connected or not in browser environment');
-    }
-
-    // Get the connected account
-    const accounts = await window.ethereum.request({ method: 'eth_accounts' });
-    if (!accounts || accounts.length === 0) {
-      throw new Error('No wallet account found');
-    }
+    // Force network switch to Base before proceeding
+    await ensureBaseNetwork();
     
-    const userAddress = accounts[0];
+    const userAddress = await getUserAddress();
     console.log('Using wallet address:', userAddress);
-
-    // MerkleDistributor contract address on Base
-    const merkleDistributorAddress = MERKLE_DISTRIBUTOR_ADDRESS;
     
-    console.log('Preparing direct contract call to MerkleDistributor...');
-    console.log('Contract address:', merkleDistributorAddress);
-    
-    // Step 1: Check and handle token approval
-    console.log('Checking token approval...');
-    
-    // Check if approval is needed
-    const totalAmount = config.amountPerClaim * BigInt(config.walletCount);
-    const isApproved = await checkTokenAllowance(config.token, totalAmount);
-    
-    if (!isApproved) {
-      console.log('Token approval needed, requesting approval...');
-      if (callbacks?.onAllowanceSignatureRequest) {
-        callbacks.onAllowanceSignatureRequest();
-      }
-      
-      // Request token approval
-      await approveTokenForAirdrop(config.token, totalAmount, {
-        onSignatureRequest: () => {
-          console.log('Token approval signature requested');
-          if (callbacks?.onAllowanceSignatureRequest) {
-            callbacks.onAllowanceSignatureRequest();
-          }
-        },
-        onSigned: (txHash) => {
-          console.log('Token approval signed:', txHash);
-          if (callbacks?.onAllowanceSigned) {
-            callbacks.onAllowanceSigned(txHash);
-          }
-        },
-        onSuccess: (receipt) => {
-          console.log('Token approval completed:', receipt);
-          if (callbacks?.onAllowanceSuccess) {
-            callbacks.onAllowanceSuccess(receipt);
-          }
-        },
-        onError: (error) => {
-          console.error('Token approval failed:', error);
-          if (callbacks?.onError) {
-            callbacks.onError(error);
-          }
-        }
+    // Validate token address first
+    console.log('Validating token address...');
+    try {
+      const publicClient = createPublicClient({
+        chain: base,
+        transport: http(NETWORK.RPC_URL),
       });
-    } else {
-      console.log('Token already approved, proceeding...');
-      if (callbacks?.onAllowanceSuccess) {
-        callbacks.onAllowanceSuccess({ status: 'already_approved' });
-      }
+      
+      const [tokenName, tokenSymbol, tokenDecimals] = await Promise.all([
+        publicClient.readContract({
+          address: config.token as Address,
+          abi: ERC20_ABI,
+          functionName: 'name'
+        }),
+        publicClient.readContract({
+          address: config.token as Address,
+          abi: ERC20_ABI,
+          functionName: 'symbol'
+        }),
+        publicClient.readContract({
+          address: config.token as Address,
+          abi: ERC20_ABI,
+          functionName: 'decimals'
+        })
+      ]);
+      
+      console.log('Token validation successful:', { tokenName, tokenSymbol, tokenDecimals });
+      
+    } catch (tokenError) {
+      console.error('Token validation failed:', tokenError);
+      throw new Error(`Invalid token address: ${config.token}. Please check if this is a valid ERC20 token on Base network.`);
     }
     
-    // Step 2: Create airdrop by directly calling the MerkleDistributor contract
-    console.log('Creating airdrop by calling MerkleDistributor contract...');
+    // Get token decimals for proper amount calculation
+    const tokenDecimals = await getTokenDecimals(config.token as Address);
+    console.log('Token decimals:', tokenDecimals);
     
-    // MerkleDistributor ABI for createDistribution function
-    const MERKLE_DISTRIBUTOR_ABI = [
-      {
-        name: 'createDistribution',
-        type: 'function',
-        stateMutability: 'nonpayable',
-        inputs: [
-          { name: 'token', type: 'address' },
-          { name: 'isERC20', type: 'bool' },
-          { name: 'amountPerClaim', type: 'uint176' },
-          { name: 'walletCount', type: 'uint40' },
-          { name: 'startTime', type: 'uint40' },
-          { name: 'endTime', type: 'uint40' },
-          { name: 'merkleRoot', type: 'bytes32' },
-          { name: 'title', type: 'string' },
-          { name: 'ipfsCID', type: 'string' }
-        ],
-        outputs: []
-      }
-    ] as const;
+    // Calculate amounts (exactly like mint.club)
+    // config.amountPerClaim is the total amount for the entire airdrop
+    // We need to calculate the amount per user for the contract call
+    const totalAmountWei = wei(config.amountPerClaim.toString(), config.isERC20 ? tokenDecimals : 0);
+    const amountPerClaimWei = totalAmountWei / BigInt(config.walletCount);
     
-    // Encode createDistribution function call
-    const functionData = encodeFunctionData({
-      abi: MERKLE_DISTRIBUTOR_ABI,
-      functionName: 'createDistribution',
-      args: [
-        config.token as `0x${string}`,
-        config.isERC20,
-        config.amountPerClaim,
-        config.walletCount,
-        config.startTime,
-        config.endTime,
-        config.merkleRoot as `0x${string}`,
-        config.title,
-        config.ipfsCID,
-      ]
+    console.log('Amount calculations:', {
+      amountPerClaimWei: amountPerClaimWei.toString(),
+      totalAmountWei: totalAmountWei.toString(),
+      walletCount: config.walletCount,
+      tokenDecimals: tokenDecimals
     });
     
-    console.log('Function data prepared:', functionData);
+    // Step 1: Always request token approval (to ensure sufficient allowance)
+    console.log('Requesting token approval...');
+    if (callbacks?.onAllowanceSignatureRequest) {
+      callbacks.onAllowanceSignatureRequest();
+    }
     
-    // Call callbacks for user experience
+    // Always request token approval to ensure sufficient allowance
+    await approveTokenForAirdrop(config.token as Address, totalAmountWei, {
+      onSignatureRequest: () => {
+        console.log('Token approval signature requested');
+        if (callbacks?.onAllowanceSignatureRequest) {
+          callbacks.onAllowanceSignatureRequest();
+        }
+      },
+      onSigned: (txHash) => {
+        console.log('Token approval signed:', txHash);
+        if (callbacks?.onAllowanceSigned) {
+          callbacks.onAllowanceSigned(txHash);
+        }
+      },
+      onSuccess: (receipt) => {
+        console.log('Token approval completed:', receipt);
+        if (callbacks?.onAllowanceSuccess) {
+          callbacks.onAllowanceSuccess(receipt);
+        }
+      },
+      onError: (error) => {
+        console.error('Token approval failed:', error);
+        if (callbacks?.onError) {
+          callbacks.onError(error);
+        }
+      }
+    });
+    
+    // Step 2: Create airdrop
+    console.log('Creating airdrop by calling MerkleDistributor contract...');
+    
+    // Call signature request callback
     if (callbacks?.onSignatureRequest) {
       callbacks.onSignatureRequest();
     }
     
-    console.log('Sending transaction to MerkleDistributor contract...');
+    console.log('Creating wallet client and sending transaction...');
     
-    // Send the transaction
-    const txHash = await window.ethereum.request({
-      method: 'eth_sendTransaction',
-      params: [{
-        to: merkleDistributorAddress,
-        from: userAddress,
-        data: functionData,
-        gas: '0x1e8480', // 2,000,000 gas limit
-      }],
-    });
+    // Create wallet client for transaction
+    const walletClient = await createWalletClientFromWindow();
     
-    console.log('Transaction sent:', txHash);
+    console.log('Preparing airdrop transaction...');
     
-    if (callbacks?.onSigned) {
-      callbacks.onSigned(txHash as `0x${string}`);
+    // Try wagmi approach first, fallback to direct MetaMask if it fails
+    let tx: Hash;
+    
+    try {
+      console.log('Simulating airdrop transaction...');
+      const { request } = await simulateContract(walletClient, {
+        address: MERKLE_DISTRIBUTOR_ADDRESS,
+        abi: MERKLE_DISTRIBUTOR_ABI,
+        functionName: 'createDistribution',
+        args: [
+          config.token as Address, // token
+          config.isERC20, // isERC20
+          amountPerClaimWei, // amountPerClaim (calculated per wallet)
+          config.walletCount, // walletCount
+          config.startTime, // startTime
+          config.endTime, // endTime
+          (config.merkleRoot as `0x${string}`) || EMPTY_ROOT, // merkleRoot
+          config.title, // title
+          config.ipfsCID, // ipfsCID
+        ],
+      });
+      
+      console.log('Airdrop simulation successful, gas estimate:', request.gas);
+      
+      tx = await Promise.race([
+        writeContract(walletClient, request),
+        new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Transaction request timeout')), 120000)
+        )
+      ]) as Hash;
+      
+    } catch (wagmiError) {
+      console.warn('Wagmi approach failed, falling back to direct MetaMask:', wagmiError);
+      
+      // Fallback to direct MetaMask approach
+      console.log('Using direct MetaMask approach for airdrop creation...');
+      
+      // Encode the function call data
+      const data = encodeFunctionData({
+        abi: MERKLE_DISTRIBUTOR_ABI,
+        functionName: 'createDistribution',
+        args: [
+          config.token as Address, // token
+          config.isERC20, // isERC20
+          amountPerClaimWei, // amountPerClaim (calculated per wallet)
+          config.walletCount, // walletCount
+          config.startTime, // startTime
+          config.endTime, // endTime
+          (config.merkleRoot as `0x${string}`) || EMPTY_ROOT, // merkleRoot
+          config.title, // title
+          config.ipfsCID, // ipfsCID
+        ],
+      });
+      
+      // Estimate gas for transaction
+      console.log('Estimating gas for airdrop transaction...');
+      const gasEstimate = await window.ethereum.request({
+        method: 'eth_estimateGas',
+        params: [{
+          from: userAddress,
+          to: MERKLE_DISTRIBUTOR_ADDRESS,
+          value: '0x0',
+          data: data,
+        }]
+      });
+      
+      console.log('Airdrop gas estimate:', gasEstimate);
+      
+      // Add buffer to gas estimate (20% more)
+      const gasWithBuffer = BigInt(gasEstimate) * BigInt(120) / BigInt(100);
+      console.log('Airdrop gas with buffer:', gasWithBuffer.toString());
+      
+      // Send transaction via MetaMask
+      console.log('Sending airdrop transaction to MetaMask...');
+      tx = await Promise.race([
+        window.ethereum.request({
+          method: 'eth_sendTransaction',
+          params: [{
+            from: userAddress,
+            to: MERKLE_DISTRIBUTOR_ADDRESS,
+            value: '0x0',
+            data: data,
+            gas: '0x' + gasWithBuffer.toString(16),
+          }]
+        }),
+        new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Transaction request timeout')), 120000)
+        )
+      ]) as Hash;
     }
     
-    // Wait for transaction confirmation
-    console.log('Waiting for transaction confirmation...');
-    const receipt = await waitForTransactionConfirmation(txHash);
+    console.log('Airdrop transaction sent:', tx);
+    
+    if (callbacks?.onSigned) {
+      callbacks.onSigned(tx);
+    }
+    
+    // Wait for transaction confirmation with improved timeout handling
+    console.log('Waiting for airdrop transaction confirmation...');
+    
+    // Use custom wait function similar to mint.club-v2-web
+    const receipt = await customWaitForTransaction(base.id, tx);
     
     console.log('Airdrop transaction completed:', receipt);
     
@@ -521,57 +877,17 @@ export async function createAirdrop(config: AirdropConfig, callbacks?: {
   }
 }
 
-
-// Helper function to wait for transaction confirmation
-async function waitForTransactionConfirmation(txHash: string): Promise<any> {
-  return new Promise((resolve, reject) => {
-    const checkConfirmation = async () => {
-      try {
-        const receipt = await window.ethereum.request({
-          method: 'eth_getTransactionReceipt',
-          params: [txHash],
-        });
-        
-        if (receipt) {
-          resolve(receipt);
-        } else {
-          setTimeout(checkConfirmation, 2000);
-        }
-      } catch (error) {
-        reject(error);
-      }
-    };
-    
-    checkConfirmation();
-  });
-}
-
-// Get the latest airdrop ID (useful after creating a new airdrop)
+// Get the latest airdrop ID
 export async function getLatestAirdropId(): Promise<number> {
   try {
     console.log('Getting latest airdrop ID...');
     
-    // Initialize SDK first
-    await initializeSDK();
+    const totalCount = await publicClient.readContract({
+      address: MERKLE_DISTRIBUTOR_ADDRESS,
+      abi: MERKLE_DISTRIBUTOR_ABI,
+      functionName: 'distributionCount'
+    });
     
-    // Check if mintclub SDK is properly loaded
-    if (!mintclub || !mintclub.network) {
-      throw new Error('Mint.club SDK not properly loaded');
-    }
-    
-    console.log('Mint.club SDK loaded successfully');
-    
-    // Get base network
-    const baseNetwork = mintclub.network(NETWORK.BASE);
-    if (!baseNetwork || !baseNetwork.airdrop) {
-      throw new Error('Base network or airdrop module not available in Mint.club SDK');
-    }
-    
-    console.log('Base network airdrop module available');
-    console.log('Available airdrop methods:', Object.keys(baseNetwork.airdrop));
-    
-    console.log('Calling getTotalAirdropCount...');
-    const totalCount = await baseNetwork.airdrop.getTotalAirdropCount();
     console.log('Total airdrop count received:', totalCount, 'Type:', typeof totalCount);
     
     // The latest airdrop ID is totalCount - 1 (since IDs are 0-indexed)
@@ -590,80 +906,188 @@ export async function getLatestAirdropId(): Promise<number> {
   }
 }
 
-// 에어드랍 정보 조회
-export async function getAirdropById(airdropId: number) {
+// Get airdrop information by ID
+export async function getAirdropById(airdropId: number): Promise<Distribution> {
   try {
-    // Initialize SDK first
-    await initializeSDK();
+    console.log('Getting airdrop by ID:', airdropId);
     
-    // Get base network
-    const baseNetwork = mintclub.network(NETWORK.BASE);
-    if (!baseNetwork || !baseNetwork.airdrop) {
-      throw new Error('Base network or airdrop module not available in Mint.club SDK');
-    }
+    const distribution = await publicClient.readContract({
+      address: MERKLE_DISTRIBUTOR_ADDRESS,
+      abi: MERKLE_DISTRIBUTOR_ABI,
+      functionName: 'distributions',
+      args: [BigInt(airdropId)]
+    });
     
-    const airdrop = await baseNetwork.airdrop.getAirdropById(airdropId);
-    return airdrop;
+    console.log('Retrieved distribution:', distribution);
+    
+    return {
+      token: distribution[0],
+      isERC20: distribution[1],
+      walletCount: Number(distribution[2]),
+      claimedCount: Number(distribution[3]),
+      amountPerClaim: distribution[4],
+      startTime: Number(distribution[5]),
+      endTime: Number(distribution[6]),
+      owner: distribution[7],
+      refundedAt: Number(distribution[8]),
+      merkleRoot: distribution[9],
+      title: distribution[10],
+      ipfsCID: distribution[11]
+    };
   } catch (error) {
     console.error('Error fetching airdrop:', error);
     throw error;
   }
 }
 
-// 에어드랍 링크 생성
+// Generate airdrop link
 export function generateAirdropLink(airdropId: number): string {
   return `https://mint.club/airdrops/base/${airdropId}`;
 }
 
-// 토큰 주소 검증
+// Validate token address
 export function isValidTokenAddress(address: string): boolean {
   return /^0x[a-fA-F0-9]{40}$/.test(address);
 }
 
-// Get custom token info (in real implementation, should fetch from token contract)
-export async function getTokenInfo(address: string): Promise<TokenInfo | null> {
-  if (!isValidTokenAddress(address)) {
+// Get token info from contract
+export async function getTokenInfo(address: Address): Promise<TokenInfo | null> {
+  try {
+    if (!isValidTokenAddress(address)) {
+      return null;
+    }
+    
+    const [name, symbol, decimals] = await Promise.all([
+      publicClient.readContract({
+        address,
+        abi: ERC20_ABI,
+        functionName: 'name'
+      }),
+      publicClient.readContract({
+        address,
+        abi: ERC20_ABI,
+        functionName: 'symbol'
+      }),
+      publicClient.readContract({
+        address,
+        abi: ERC20_ABI,
+        functionName: 'decimals'
+      })
+    ]);
+    
+    return {
+      address,
+      name,
+      symbol,
+      decimals,
+      isERC20: true,
+    };
+  } catch (error) {
+    console.error('Error getting token info:', error);
     return null;
   }
-  
-  // In real implementation, should call name(), symbol(), decimals() functions from token contract
-  // Here returning default values
-  return {
-    address,
-    name: 'Custom Token',
-    symbol: 'CUSTOM',
-    decimals: 18,
-    isERC20: true,
-  };
 }
 
 // Get token balance for a specific wallet
 export async function getTokenBalance(
-  tokenAddress: string, 
-  walletAddress: string,
+  tokenAddress: Address, 
+  walletAddress: Address,
   tokenInfo: TokenInfo
 ): Promise<TokenBalance | null> {
   try {
-    // For demo purposes, return a fixed balance for HUNT token
-    // In real implementation, this should call the token contract's balanceOf function
-    let demoBalance: bigint;
-    
-    if (tokenInfo.symbol === 'HUNT') {
-      demoBalance = BigInt(Math.floor(150.1 * 10 ** tokenInfo.decimals)); // 150.1 HUNT
-    } else if (tokenInfo.symbol === 'MT') {
-      demoBalance = BigInt(Math.floor(100 * 10 ** tokenInfo.decimals)); // 100 MT
-    } else {
-      // For other tokens, use a reasonable demo balance
-      demoBalance = BigInt(Math.floor(1000 * 10 ** tokenInfo.decimals));
-    }
+    const balance = await publicClient.readContract({
+      address: tokenAddress,
+      abi: ERC20_ABI,
+      functionName: 'balanceOf',
+      args: [walletAddress]
+    });
     
     return {
       token: tokenInfo,
-      balance: demoBalance,
-      formattedBalance: (Number(demoBalance) / 10 ** tokenInfo.decimals).toFixed(4)
+      balance,
+      formattedBalance: (Number(balance) / 10 ** tokenInfo.decimals).toFixed(4)
     };
   } catch (error) {
     console.error('Error getting token balance:', error);
     return null;
+  }
+}
+
+// Check if a wallet has claimed tokens for a specific distribution
+export async function isClaimed(distributionId: number, wallet: Address): Promise<boolean> {
+  try {
+    return await publicClient.readContract({
+      address: MERKLE_DISTRIBUTOR_ADDRESS,
+      abi: MERKLE_DISTRIBUTOR_ABI,
+      functionName: 'isClaimed',
+      args: [BigInt(distributionId), wallet]
+    });
+  } catch (error) {
+    console.error('Error checking if claimed:', error);
+    return false;
+  }
+}
+
+// Check if a distribution is whitelist-only
+export async function isWhitelistOnly(distributionId: number): Promise<boolean> {
+  try {
+    return await publicClient.readContract({
+      address: MERKLE_DISTRIBUTOR_ADDRESS,
+      abi: MERKLE_DISTRIBUTOR_ABI,
+      functionName: 'isWhitelistOnly',
+      args: [BigInt(distributionId)]
+    });
+  } catch (error) {
+    console.error('Error checking if whitelist only:', error);
+    return false;
+  }
+}
+
+// Check if a wallet is whitelisted for a distribution
+export async function isWhitelisted(
+  distributionId: number, 
+  wallet: Address, 
+  merkleProof: Hash[]
+): Promise<boolean> {
+  try {
+    return await publicClient.readContract({
+      address: MERKLE_DISTRIBUTOR_ADDRESS,
+      abi: MERKLE_DISTRIBUTOR_ABI,
+      functionName: 'isWhitelisted',
+      args: [BigInt(distributionId), wallet, merkleProof]
+    });
+  } catch (error) {
+    console.error('Error checking if whitelisted:', error);
+    return false;
+  }
+}
+
+// Get amount left for a distribution
+export async function getAmountLeft(distributionId: number): Promise<bigint> {
+  try {
+    return await publicClient.readContract({
+      address: MERKLE_DISTRIBUTOR_ADDRESS,
+      abi: MERKLE_DISTRIBUTOR_ABI,
+      functionName: 'getAmountLeft',
+      args: [BigInt(distributionId)]
+    });
+  } catch (error) {
+    console.error('Error getting amount left:', error);
+    return 0n;
+  }
+}
+
+// Get amount claimed for a distribution
+export async function getAmountClaimed(distributionId: number): Promise<bigint> {
+  try {
+    return await publicClient.readContract({
+      address: MERKLE_DISTRIBUTOR_ADDRESS,
+      abi: MERKLE_DISTRIBUTOR_ABI,
+      functionName: 'getAmountClaimed',
+      args: [BigInt(distributionId)]
+    });
+  } catch (error) {
+    console.error('Error getting amount claimed:', error);
+    return 0n;
   }
 }

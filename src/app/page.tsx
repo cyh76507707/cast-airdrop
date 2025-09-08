@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/Select';
 import { LoadingCard } from '@/components/ui/LoadingSpinner';
-import { extractCastHash, getAllCastUsers, getCastByHashOrUrl, transformCastToInfo, CastUser, CastEngagement, CastInfo } from '@/lib/neynar';
+import { getAllCastUsers, getCastByHashOrUrl, transformCastToInfo, CastUser, CastEngagement, CastInfo } from '@/lib/neynar';
 import { 
   PREDEFINED_TOKENS, 
   uploadWalletsToIPFS, 
@@ -15,11 +15,9 @@ import {
   createAirdrop, 
   generateAirdropLink,
   getLatestAirdropId,
-  checkSDKStatus,
-  initializeSDK,
-  TokenInfo,
   TokenBalance,
-  getTokenBalance
+  getTokenBalance,
+  wei
 } from '@/lib/mintclub';
 import { sdk } from '@farcaster/miniapp-sdk';
 import { Header } from '@/components/Header';
@@ -34,7 +32,7 @@ interface AirdropForm {
   endTime: string;
 }
 
-export default function CastAirdropPage({ title }: { title?: string } = { title: "Cast Airdrop" }) {
+export default function CastAirdropPage() {
   const { isSDKLoaded } = useFrame();
 
   console.log("🔍 CastAirdropPage render - isSDKLoaded:", isSDKLoaded);
@@ -59,18 +57,8 @@ export default function CastAirdropPage({ title }: { title?: string } = { title:
       await sdk.actions.ready();
       setAppReady(true);
       
-      // Initialize Mint.club SDK after app is ready
-      console.log('Initializing Mint.club SDK...');
-      try {
-        await initializeSDK();
-        console.log('Mint.club SDK initialized successfully');
-      } catch (error) {
-        console.error('Failed to initialize Mint.club SDK:', error);
-      }
-      
-      // Check Mint.club SDK status after initialization
-      console.log('Checking Mint.club SDK status...');
-      checkSDKStatus();
+      // App is ready for use
+      console.log('App initialized successfully');
     })();
   }, [isSDKLoaded, appReady]);
 
@@ -94,7 +82,7 @@ export default function CastAirdropPage({ title }: { title?: string } = { title:
     endTime: '',
   });
   const [airdropLink, setAirdropLink] = useState<string | null>(null);
-  const [tokenBalance, setTokenBalance] = useState<TokenBalance | null>(null);
+  const [tokenBalance, _setTokenBalance] = useState<TokenBalance | null>(null);
   const [transactionStatus, setTransactionStatus] = useState<'idle' | 'preparing' | 'approval-signing' | 'approval-confirming' | 'approval-completed' | 'airdrop-signing' | 'airdrop-confirming' | 'completed' | 'error'>('idle');
   const [transactionHash, setTransactionHash] = useState<`0x${string}` | null>(null);
   const [approvalHash, setApprovalHash] = useState<`0x${string}` | null>(null);
@@ -124,7 +112,7 @@ export default function CastAirdropPage({ title }: { title?: string } = { title:
   };
 
   // TokenBalanceDisplay component
-  const TokenBalanceDisplay = React.useCallback(({ 
+  const TokenBalanceDisplay = ({ 
     tokenAddress, 
     walletAddress, 
     totalAmount, 
@@ -149,7 +137,7 @@ export default function CastAirdropPage({ title }: { title?: string } = { title:
         try {
           const tokenInfo = PREDEFINED_TOKENS.find(token => token.address === tokenAddress);
           if (tokenInfo) {
-            const balanceData = await getTokenBalance(tokenAddress, walletAddress, tokenInfo);
+            const balanceData = await getTokenBalance(tokenAddress as `0x${string}`, walletAddress as `0x${string}`, tokenInfo);
             setBalance(balanceData);
             // Don't update global tokenBalance here to avoid infinite loop
           }
@@ -204,7 +192,7 @@ export default function CastAirdropPage({ title }: { title?: string } = { title:
         )}
       </div>
     );
-  }, []);
+  };
 
   // SDK initialization is handled only in FrameProvider (same pattern as Clap)
 
@@ -214,7 +202,7 @@ export default function CastAirdropPage({ title }: { title?: string } = { title:
   }
 
     // Show wallet connection requirement message if wallet is not connected
-  const showWalletRequirement = !currentWallet?.connected && currentStep === 'airdrop-form';
+  const _showWalletRequirement = !currentWallet?.connected && currentStep === 'airdrop-form';
 
   const handleUrlSubmit = async () => {
     if (!castUrl.trim()) {
@@ -337,7 +325,7 @@ export default function CastAirdropPage({ title }: { title?: string } = { title:
     if (!castInfo || !selectedActions) return 'Community Airdrop';
     
     const authorName = castInfo.author.displayName || castInfo.author.username;
-    const castHash = castInfo.hash.substring(0, 10); // Use only first 10 characters of hash
+    const _castHash = castInfo.hash.substring(0, 10); // Use only first 10 characters of hash
     
           // Check selected actions
     const selectedActionTypes = [];
@@ -388,12 +376,10 @@ export default function CastAirdropPage({ title }: { title?: string } = { title:
       const primaryWalletAddresses = finalUserList.map(user => user.walletAddress);
       console.log('Primary wallet addresses:', primaryWalletAddresses);
 
-      // Step 3: Calculate amounts
+      // Step 3: Calculate amounts (using mint.club's approach)
       const totalAmount = parseFloat(airdropForm.totalAmount);
-      const totalAmountBigInt = BigInt(Math.floor(totalAmount * 1e18)); // Total amount in wei
-      const amountPerClaim = BigInt(Math.floor((totalAmount / finalUserList.length) * 1e18));
-      console.log('Total amount (wei):', totalAmountBigInt.toString());
-      console.log('Amount per claim (wei):', amountPerClaim.toString());
+      console.log('Total amount for airdrop:', totalAmount);
+      console.log('Number of users:', finalUserList.length);
 
       // Step 4: Generate merkle root and upload to IPFS
       setTransactionStatus('preparing');
@@ -402,29 +388,25 @@ export default function CastAirdropPage({ title }: { title?: string } = { title:
       console.log('Merkle root:', merkleRoot);
       console.log('IPFS CID:', ipfsCID);
 
-      // Step 5: SDK will automatically handle token approval
-      console.log('SDK will automatically handle token approval if needed...');
-      setTransactionStatus('approval-completed');
-
-      // Step 6: Create airdrop with MintClub SDK
+      // Step 5: Create airdrop using mint.club's verified approach
       const endTime = Math.floor(new Date(airdropForm.endTime).getTime() / 1000);
       const startTime = Math.floor(Date.now() / 1000);
 
-      console.log('Creating airdrop with MintClub SDK...');
+      console.log('Creating airdrop with mint.club approach...');
       setTransactionStatus('airdrop-signing');
       
-      const receipt = await createAirdrop({
+      const _receipt = await createAirdrop({
         title: airdropForm.title,
         token: airdropForm.tokenAddress as `0x${string}`,
         isERC20: true,
-        amountPerClaim,
+        amountPerClaim: totalAmount, // Total amount for the entire airdrop
         walletCount: finalUserList.length,
         startTime,
         endTime,
         merkleRoot,
         ipfsCID,
       }, {
-        // Approval callbacks (SDK will automatically handle approval)
+        // Token approval callbacks
         onAllowanceSignatureRequest: () => {
           setTransactionStatus('approval-signing');
           console.log('Token approval signature requested');
@@ -455,6 +437,22 @@ export default function CastAirdropPage({ title }: { title?: string } = { title:
         onError: (error: unknown) => {
           setTransactionStatus('error');
           console.error('Transaction failed:', error);
+          
+          // Provide user-friendly error messages
+          if (error instanceof Error) {
+            if (error.message.includes('Base network')) {
+              setError('Please switch to Base network in MetaMask and try again.');
+            } else if (error.message.includes('User denied')) {
+              setError('Transaction was cancelled. Please try again.');
+            } else if (error.message.includes('insufficient funds')) {
+              setError('Insufficient funds for transaction. Please check your balance.');
+            } else {
+              setError(`Transaction failed: ${error.message}`);
+            }
+          } else {
+            setError('Transaction failed. Please try again.');
+          }
+          
           throw error;
         }
       });
@@ -500,7 +498,7 @@ export default function CastAirdropPage({ title }: { title?: string } = { title:
       try {
         await navigator.clipboard.writeText(airdropLink);
         // You could add a toast notification here
-      } catch (err) {
+      } catch (_err) {
         console.error('Failed to copy to clipboard');
       }
     }
@@ -830,7 +828,7 @@ export default function CastAirdropPage({ title }: { title?: string } = { title:
           <CardContent className="space-y-4">
             <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
               <p className="text-sm text-yellow-800">
-                Please connect your wallet using the "Connect Wallet" button in the header.
+                Please connect your wallet using the &quot;Connect Wallet&quot; button in the header.
               </p>
             </div>
           </CardContent>

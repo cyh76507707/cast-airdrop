@@ -298,7 +298,7 @@ export function WalletTab() {
           <Button
             onClick={sendEvmContractTransaction}
             disabled={!isConnected || isEvmTransactionPending}
-            isLoading={isEvmTransactionPending}
+            loading={isEvmTransactionPending}
             className="w-full"
           >
             Send Transaction (contract)
@@ -320,7 +320,7 @@ export function WalletTab() {
           <Button
             onClick={signTyped}
             disabled={!isConnected || isEvmSignTypedDataPending}
-            isLoading={isEvmSignTypedDataPending}
+            loading={isEvmSignTypedDataPending}
             className="w-full"
           >
             Sign Typed Data
@@ -329,7 +329,7 @@ export function WalletTab() {
           <Button
             onClick={handleSwitchChain}
             disabled={isChainSwitchPending}
-            isLoading={isChainSwitchPending}
+            loading={isChainSwitchPending}
             className="w-full"
           >
             Switch to {nextChain.name}

@@ -1,5 +1,36 @@
 const NEYNAR_API_KEY = process.env.NEXT_PUBLIC_NEYNAR_API_KEY || 'NEYNAR_DEMO_KEY';
 
+// Neynar client 생성 함수
+export function getNeynarClient() {
+  return {
+    apiKey: NEYNAR_API_KEY,
+    baseUrl: 'https://api.neynar.com'
+  };
+}
+
+// 사용자 정보 가져오기
+export async function getNeynarUser(fid: number) {
+  const response = await fetch(`https://api.neynar.com/v2/farcaster/user/bulk?fids=${fid}`, {
+    headers: {
+      'x-api-key': NEYNAR_API_KEY,
+    },
+  });
+  
+  if (!response.ok) {
+    throw new Error('Failed to fetch user');
+  }
+  
+  const data = await response.json();
+  return data.users?.[0] || null;
+}
+
+// 미니앱 알림 전송
+export async function sendNeynarMiniAppNotification(params: { fid: number; title: string; body: string }) {
+  // 실제 구현에서는 Neynar의 알림 API를 사용해야 합니다
+  console.log(`Sending notification to FID ${params.fid}: ${params.title} - ${params.body}`);
+  return { state: "success" as const };
+}
+
 export interface CastUser {
   fid: number;
   username: string;

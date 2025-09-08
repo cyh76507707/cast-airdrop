@@ -64,21 +64,27 @@ export function WalletConnect({ onWalletConnect, onWalletDisconnect, currentWall
       // Try to get user info from Farcaster frame
       await sdk.actions.ready();
       
-      // Once frame is ready, user info can be retrieved
-      // In actual implementation, user info should be fetched through frame API
-      // Currently using demo address for testing
-      // TODO: Get actual user address from wallet connection
-      const demoAddress = '0x0000000000000000000000000000000000000000';
-      const walletInfo: WalletInfo = {
-        address: demoAddress,
-        type: 'farcaster',
-        connected: true
-      };
-      onWalletConnect(walletInfo);
+      // Get actual user address from Farcaster frame
+      // For now, we'll use MetaMask as fallback since Farcaster frame doesn't provide direct wallet access
+      if (typeof window !== 'undefined' && window.ethereum) {
+        const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+        if (accounts && accounts.length > 0) {
+          const walletInfo: WalletInfo = {
+            address: accounts[0],
+            type: 'farcaster',
+            connected: true
+          };
+          onWalletConnect(walletInfo);
+        } else {
+          throw new Error('No accounts found');
+        }
+      } else {
+        throw new Error('No wallet provider found');
+      }
       
     } catch (error: unknown) {
       console.error('Failed to connect Farcaster wallet:', error);
-      alert('Failed to connect Farcaster wallet.');
+      alert('Failed to connect Farcaster wallet. Please use MetaMask instead.');
     } finally {
       setConnecting(false);
     }

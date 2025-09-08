@@ -57,7 +57,7 @@ const connectors = [
 
 // Clap 패턴과 동일하게 조건부로 farcaster connector 추가
 if (farcasterFrameConnector) {
-  connectors.push(farcasterFrameConnector());
+  connectors.push(farcasterFrameConnector);
 }
 
 export const config = createConfig({
