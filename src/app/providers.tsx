@@ -1,14 +1,7 @@
 'use client';
 
-import dynamic from 'next/dynamic';
 import { FrameProvider } from '~/components/providers/FrameProvider';
-
-const WagmiProvider = dynamic(
-  () => import('~/components/providers/WagmiProvider'),
-  {
-    ssr: false,
-  }
-);
+import { RainbowKitWrapper } from '~/components/providers/RainbowKitProvider';
 
 export function Providers({
   children,
@@ -16,10 +9,10 @@ export function Providers({
   children: React.ReactNode;
 }) {
   return (
-    <WagmiProvider>
+    <RainbowKitWrapper>
       <FrameProvider>
         {children}
       </FrameProvider>
-    </WagmiProvider>
+    </RainbowKitWrapper>
   );
 }

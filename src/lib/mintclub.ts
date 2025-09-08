@@ -1,5 +1,7 @@
 import {
   createPublicClient,
+  createWalletClient,
+  custom,
   http,
   parseUnits,
   type Address,
@@ -13,7 +15,7 @@ import {
   switchChain,
   writeContract,
 } from "wagmi/actions";
-import { wagmiConfig } from "~/providers/wagmiConfig";
+import { config } from "~/lib/rainbowkit";
 import { EMPTY_ROOT, MERKLE_DISTRIBUTOR_ADDRESS, NETWORK } from "./constants";
 
 // Wei conversion function (similar to mint.club implementation)
@@ -333,12 +335,16 @@ export async function uploadWalletsToIPFS(wallets: string[]): Promise<string> {
       "wallets"
     );
 
+    // Use FormData format (matching mint.club-v2-web exactly)
+    const formData = new FormData();
+    formData.append(
+      'file',
+      new Blob([JSON.stringify(wallets, null, 2)])
+    );
+
     const response = await fetch("/api/ipfs/upload", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ wallets }),
+      body: formData,
     });
 
     if (!response.ok) {
@@ -401,7 +407,7 @@ export async function generateMerkleRoot(wallets: string[]): Promise<string> {
 // Ensure we're on Base network
 async function ensureBaseNetwork(): Promise<void> {
   try {
-    const currentChainId = await getChainId(wagmiConfig);
+    const currentChainId = await getChainId(config);
     console.log(
       "Current chain ID:",
       currentChainId,
@@ -410,7 +416,7 @@ async function ensureBaseNetwork(): Promise<void> {
     );
     if (currentChainId !== NETWORK.CHAIN_ID) {
       console.log("Switching to Base network via wagmi...");
-      await switchChain(wagmiConfig, { chainId: base.id });
+      await switchChain(config, { chainId: base.id });
       console.log("Successfully switched to Base network");
     } else {
       console.log("Already on Base network");
@@ -427,7 +433,7 @@ async function ensureBaseNetwork(): Promise<void> {
 
 // Get user's wallet address
 async function getUserAddress(): Promise<Address> {
-  const account = await getAccount(wagmiConfig);
+  const account = await getAccount(config);
   if (!account.address) {
     throw new Error("No wallet account found");
   }
@@ -531,7 +537,7 @@ export async function approveTokenForAirdrop(
     // Simulate and send approval transaction via wagmi
     let hash: Hash;
     console.log("Simulating approval transaction...");
-    const { request } = await simulateContract(wagmiConfig, {
+    const { request } = await simulateContract(config, {
       address: tokenAddress,
       abi: ERC20_ABI,
       functionName: "approve",
@@ -540,7 +546,7 @@ export async function approveTokenForAirdrop(
     console.log("Approval simulation successful, gas estimate:", request.gas);
     console.log("Sending approval transaction...");
     hash = (await Promise.race([
-      writeContract(wagmiConfig, request),
+      writeContract(config, request),
       new Promise((_, reject) =>
         setTimeout(
           () => reject(new Error("Transaction request timeout")),
@@ -558,7 +564,7 @@ export async function approveTokenForAirdrop(
     console.log("Waiting for approval transaction confirmation...");
 
     // Wait for receipt via wagmi
-    const receipt = await customWaitForTransaction(hash);
+    const receipt = await customWaitForTransaction(base.id, hash);
 
     console.log("Token approval completed:", receipt);
 
@@ -585,7 +591,7 @@ export async function approveTokenForAirdrop(
 
 // Create airdrop using mint.club's verified approach
 export async function createAirdrop(
-  config: AirdropConfig,
+  airdropConfig: AirdropConfig,
   callbacks?: {
     onAllowanceSignatureRequest?: () => void;
     onAllowanceSigned?: (txHash: Hash) => void;
@@ -615,17 +621,17 @@ export async function createAirdrop(
 
       const [tokenName, tokenSymbol, tokenDecimals] = await Promise.all([
         publicClient.readContract({
-          address: config.token as Address,
+          address: airdropConfig.token as Address,
           abi: ERC20_ABI,
           functionName: "name",
         }),
         publicClient.readContract({
-          address: config.token as Address,
+          address: airdropConfig.token as Address,
           abi: ERC20_ABI,
           functionName: "symbol",
         }),
         publicClient.readContract({
-          address: config.token as Address,
+          address: airdropConfig.token as Address,
           abi: ERC20_ABI,
           functionName: "decimals",
         }),
@@ -639,27 +645,27 @@ export async function createAirdrop(
     } catch (tokenError) {
       console.error("Token validation failed:", tokenError);
       throw new Error(
-        `Invalid token address: ${config.token}. Please check if this is a valid ERC20 token on Base network.`
+        `Invalid token address: ${airdropConfig.token}. Please check if this is a valid ERC20 token on Base network.`
       );
     }
 
     // Get token decimals for proper amount calculation
-    const tokenDecimals = await getTokenDecimals(config.token as Address);
+    const tokenDecimals = await getTokenDecimals(airdropConfig.token as Address);
     console.log("Token decimals:", tokenDecimals);
 
     // Calculate amounts (exactly like mint.club)
-    // config.amountPerClaim is the total amount for the entire airdrop
+    // airdropConfig.amountPerClaim is the total amount for the entire airdrop
     // We need to calculate the amount per user for the contract call
     const totalAmountWei = wei(
-      config.amountPerClaim.toString(),
-      config.isERC20 ? tokenDecimals : 0
+      airdropConfig.amountPerClaim.toString(),
+      airdropConfig.isERC20 ? tokenDecimals : 0
     );
-    const amountPerClaimWei = totalAmountWei / BigInt(config.walletCount);
+    const amountPerClaimWei = totalAmountWei / BigInt(airdropConfig.walletCount);
 
     console.log("Amount calculations:", {
       amountPerClaimWei: amountPerClaimWei.toString(),
       totalAmountWei: totalAmountWei.toString(),
-      walletCount: config.walletCount,
+      walletCount: airdropConfig.walletCount,
       tokenDecimals: tokenDecimals,
     });
 
@@ -670,7 +676,7 @@ export async function createAirdrop(
     }
 
     // Always request token approval to ensure sufficient allowance
-    await approveTokenForAirdrop(config.token as Address, totalAmountWei, {
+    await approveTokenForAirdrop(airdropConfig.token as Address, totalAmountWei, {
       onSignatureRequest: () => {
         console.log("Token approval signature requested");
         if (callbacks?.onAllowanceSignatureRequest) {
@@ -710,25 +716,25 @@ export async function createAirdrop(
     console.log("Preparing airdrop transaction...");
     let tx: Hash;
     console.log("Simulating airdrop transaction...");
-    const { request } = await simulateContract(wagmiConfig, {
+    const { request } = await simulateContract(config, {
       address: MERKLE_DISTRIBUTOR_ADDRESS,
       abi: MERKLE_DISTRIBUTOR_ABI,
       functionName: "createDistribution",
       args: [
-        config.token as Address,
-        config.isERC20,
+        airdropConfig.token as Address,
+        airdropConfig.isERC20,
         amountPerClaimWei,
-        config.walletCount,
-        config.startTime,
-        config.endTime,
-        (config.merkleRoot as `0x${string}`) || EMPTY_ROOT,
-        config.title,
-        config.ipfsCID,
+        airdropConfig.walletCount,
+        airdropConfig.startTime,
+        airdropConfig.endTime,
+        (airdropConfig.merkleRoot as `0x${string}`) || EMPTY_ROOT,
+        airdropConfig.title,
+        airdropConfig.ipfsCID,
       ],
     });
     console.log("Airdrop simulation successful, gas estimate:", request.gas);
     tx = (await Promise.race([
-      writeContract(wagmiConfig, request),
+      writeContract(config, request),
       new Promise((_, reject) =>
         setTimeout(
           () => reject(new Error("Transaction request timeout")),
@@ -746,7 +752,7 @@ export async function createAirdrop(
     console.log("Waiting for airdrop transaction confirmation...");
 
     // Wait for receipt via wagmi
-    const receipt = await customWaitForTransaction(tx);
+    const receipt = await customWaitForTransaction(base.id, tx);
 
     console.log("Airdrop transaction completed:", receipt);
 

@@ -21,7 +21,7 @@ import {
 } from '@/lib/mintclub';
 import { sdk } from '@farcaster/miniapp-sdk';
 import { Header } from '@/components/Header';
-import { WalletInfo } from '@/components/WalletConnect';
+import { useAccount } from 'wagmi';
 
 type Step = 'url-input' | 'user-analysis' | 'airdrop-form' | 'summary' | 'completion';
 
@@ -34,22 +34,11 @@ interface AirdropForm {
 
 export default function CastAirdropPage() {
   const { isSDKLoaded } = useFrame();
+  const { address, isConnected } = useAccount();
 
   console.log("🔍 CastAirdropPage render - isSDKLoaded:", isSDKLoaded);
 
   const [appReady, setAppReady] = useState(false);
-  const [currentWallet, setCurrentWallet] = useState<WalletInfo | undefined>();
-
-  // Wallet connection related functions
-  const handleWalletConnect = (wallet: WalletInfo) => {
-    setCurrentWallet(wallet);
-    console.log('Wallet connected:', wallet);
-  };
-
-  const handleWalletDisconnect = () => {
-    setCurrentWallet(undefined);
-    console.log('Wallet disconnected');
-  };
 
   useEffect(() => {
     if (!isSDKLoaded || appReady) return;
@@ -98,7 +87,7 @@ export default function CastAirdropPage() {
 
   // Check if user can proceed to review based on wallet connection and balance
   const canProceedToReview = (): boolean => {
-    if (!currentWallet?.connected) return false;
+    if (!isConnected) return false;
     if (!airdropForm.tokenAddress || !airdropForm.totalAmount || !airdropForm.endTime) return false;
     
     // Check if user has sufficient balance
@@ -202,7 +191,7 @@ export default function CastAirdropPage() {
   }
 
     // Show wallet connection requirement message if wallet is not connected
-  const _showWalletRequirement = !currentWallet?.connected && currentStep === 'airdrop-form';
+  const _showWalletRequirement = !isConnected && currentStep === 'airdrop-form';
 
   const handleUrlSubmit = async () => {
     if (!castUrl.trim()) {
@@ -357,7 +346,7 @@ export default function CastAirdropPage() {
       return;
     }
 
-    if (!currentWallet?.connected) {
+    if (!isConnected) {
       setError('Wallet is not connected. Please connect your wallet.');
       return;
     }
@@ -816,7 +805,7 @@ export default function CastAirdropPage() {
 
   const renderAirdropForm = () => {
     // Check if wallet is connected
-    if (!currentWallet?.connected) {
+    if (!isConnected) {
       return (
         <Card className="max-w-md mx-auto">
           <CardHeader>
@@ -875,7 +864,7 @@ export default function CastAirdropPage() {
               </p>
               <TokenBalanceDisplay 
                 tokenAddress={airdropForm.tokenAddress}
-                walletAddress={currentWallet.address}
+                walletAddress={address || ''}
                 totalAmount={airdropForm.totalAmount}
                 userCount={users.length}
               />
@@ -1093,11 +1082,7 @@ export default function CastAirdropPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <Header
-        currentWallet={currentWallet}
-        onWalletConnect={handleWalletConnect}
-        onWalletDisconnect={handleWalletDisconnect}
-      />
+      <Header />
       
       <div className="py-8 px-4">
         <div className="max-w-4xl mx-auto">

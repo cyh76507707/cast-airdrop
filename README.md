@@ -25,7 +25,7 @@ Create airdrops for users who engage with your Farcaster posts using Mint Club S
 - Node.js 18+ 
 - npm or yarn
 - Neynar API key
-- IPFS API key (Filebase recommended)
+- Filebase API key for IPFS storage (as recommended by Mint Club SDK)
 
 ### Installation
 
@@ -50,11 +50,11 @@ cp .env.example .env.local
 # Neynar API Key (get from https://dev.neynar.com/app)
 NEXT_PUBLIC_NEYNAR_API_KEY=your_neynar_api_key_here
 
-# IPFS API Key (get from https://filebase.com/)
-NEXT_PUBLIC_IPFS_API_KEY=your_ipfs_api_key_here
+# Filebase API Key (get from https://filebase.com - recommended by Mint Club SDK)
+FILEBASE_API_KEY=your_filebase_api_key_here
 
-# Mint Club API Key (if needed)
-NEXT_PUBLIC_MINTCLUB_API_KEY=your_mintclub_api_key_here
+# WalletConnect Project ID (get from https://cloud.walletconnect.com)
+NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID=your_walletconnect_project_id_here
 ```
 
 5. Run the development server:
@@ -72,10 +72,10 @@ npm run dev
 3. Copy your API key
 4. Add to `NEXT_PUBLIC_NEYNAR_API_KEY` in `.env.local`
 
-### IPFS API Key (Filebase)
+### Filebase API Key
 1. Go to [https://filebase.com/](https://filebase.com/)
 2. Create an account and get your API key
-3. Add to `NEXT_PUBLIC_IPFS_API_KEY` in `.env.local`
+3. Add to `FILEBASE_API_KEY` in `.env.local`
 
 ## Usage
 
@@ -116,7 +116,7 @@ The app comes with predefined tokens on Base network:
 - **Frontend**: Next.js 14 with TypeScript
 - **Styling**: Tailwind CSS with custom ReactBits design system
 - **APIs**: Neynar API for Farcaster data, Mint Club SDK for airdrops
-- **Storage**: IPFS for wallet list storage
+- **Storage**: Filebase for IPFS wallet list storage (recommended by Mint Club SDK)
 - **Network**: Base network for transactions
 
 ### Key Components
@@ -137,7 +137,7 @@ The app comes with predefined tokens on Base network:
 **Mint Club SDK:**
 - `createAirdrop()` - Create new airdrop
 - `generateMerkleRoot()` - Generate merkle root for wallet list
-- `uploadWalletsToIPFS()` - Upload wallet list to IPFS
+- `uploadWalletsToIPFS()` - Upload wallet list to IPFS using Filebase
 
 ## Deployment
 

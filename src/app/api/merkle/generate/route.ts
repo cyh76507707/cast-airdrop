@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { MerkleTree } from 'merkletreejs';
-import { keccak256 } from 'js-sha3';
+import { keccak256, getAddress } from 'viem';
 
 export async function POST(request: NextRequest) {
   try {
@@ -18,8 +18,9 @@ export async function POST(request: NextRequest) {
     // Sort wallets to ensure consistent ordering
     const sortedWallets = wallets.sort();
     
-    // Create leaves (hash each wallet address)
-    const leaves = sortedWallets.map(wallet => keccak256(wallet));
+    // Create leaves (hash each wallet address using getAddress for checksum format)
+    // This matches mint.club-v2-web's approach exactly
+    const leaves = sortedWallets.map(wallet => keccak256(getAddress(wallet)));
     
     // Create merkle tree
     const tree = new MerkleTree(leaves, keccak256, { sortPairs: true });
