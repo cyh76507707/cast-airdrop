@@ -2,6 +2,7 @@
 
 import { FrameProvider } from '~/components/providers/FrameProvider';
 import { RainbowKitWrapper } from '~/components/providers/RainbowKitProvider';
+import { ToastProvider } from '~/components/ui/Toast';
 
 export function Providers({
   children,
@@ -11,7 +12,9 @@ export function Providers({
   return (
     <RainbowKitWrapper>
       <FrameProvider>
-        {children}
+        <ToastProvider>
+          {children}
+        </ToastProvider>
       </FrameProvider>
     </RainbowKitWrapper>
   );
