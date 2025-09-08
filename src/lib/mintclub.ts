@@ -573,9 +573,15 @@ export async function approveTokenForAirdrop(
       
       console.log('Approval gas estimate:', gasEstimate);
       
-      // Add buffer to gas estimate (20% more)
-      const gasWithBuffer = BigInt(gasEstimate) * BigInt(120) / BigInt(100);
+      // Add more generous buffer to gas estimate (50% more for safety)
+      // Based on mint.club-v2-contract data, ERC20 approve uses ~49,220 gas on average
+      const gasWithBuffer = BigInt(gasEstimate) * BigInt(150) / BigInt(100);
       console.log('Approval gas with buffer:', gasWithBuffer.toString());
+      
+      // Ensure minimum gas limit for ERC20 approve (based on contract data)
+      const minGasLimit = BigInt(60000); // Conservative minimum
+      const finalGasLimit = gasWithBuffer > minGasLimit ? gasWithBuffer : minGasLimit;
+      console.log('Final approval gas limit:', finalGasLimit.toString());
       
       // Send approval transaction via MetaMask
       console.log('Sending approval transaction to MetaMask...');
@@ -587,7 +593,7 @@ export async function approveTokenForAirdrop(
             to: tokenAddress,
             value: '0x0',
             data: data,
-            gas: '0x' + gasWithBuffer.toString(16),
+            gas: '0x' + finalGasLimit.toString(16),
           }]
         }),
         new Promise((_, reject) => 
@@ -818,9 +824,15 @@ export async function createAirdrop(config: AirdropConfig, callbacks?: {
       
       console.log('Airdrop gas estimate:', gasEstimate);
       
-      // Add buffer to gas estimate (20% more)
-      const gasWithBuffer = BigInt(gasEstimate) * BigInt(120) / BigInt(100);
+      // Add more generous buffer to gas estimate (50% more for safety)
+      // MerkleDistributor createDistribution is more complex, needs more gas
+      const gasWithBuffer = BigInt(gasEstimate) * BigInt(150) / BigInt(100);
       console.log('Airdrop gas with buffer:', gasWithBuffer.toString());
+      
+      // Ensure minimum gas limit for MerkleDistributor createDistribution
+      const minGasLimit = BigInt(300000); // Conservative minimum for complex contract call
+      const finalGasLimit = gasWithBuffer > minGasLimit ? gasWithBuffer : minGasLimit;
+      console.log('Final airdrop gas limit:', finalGasLimit.toString());
       
       // Send transaction via MetaMask
       console.log('Sending airdrop transaction to MetaMask...');
@@ -832,7 +844,7 @@ export async function createAirdrop(config: AirdropConfig, callbacks?: {
             to: MERKLE_DISTRIBUTOR_ADDRESS,
             value: '0x0',
             data: data,
-            gas: '0x' + gasWithBuffer.toString(16),
+            gas: '0x' + finalGasLimit.toString(16),
           }]
         }),
         new Promise((_, reject) => 
