@@ -115,4 +115,26 @@ body {
   .focus-ring {
     @apply focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2;
   }
+
+  /* Custom datetime-local input styling */
+  input[type="datetime-local"] {
+    position: relative;
+  }
+
+  input[type="datetime-local"]::-webkit-calendar-picker-indicator {
+    position: absolute;
+    right: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+    opacity: 0.6;
+    margin: 0;
+    padding: 0;
+  }
+
+  input[type="datetime-local"]::-webkit-calendar-picker-indicator:hover {
+    opacity: 1;
+  }
 }
