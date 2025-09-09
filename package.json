@@ -66,5 +66,10 @@
     "tailwindcss": "^3.4.1",
     "ts-node": "^10.9.2",
     "typescript": "^5"
+  },
+  "overrides": {
+    "chalk": "5.3.0",
+    "strip-ansi": "7.1.0",
+    "is-core-module": "2.13.1"
   }
 }
