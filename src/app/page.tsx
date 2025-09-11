@@ -115,61 +115,70 @@ export default function CastAirdropPage() {
   // TokenBalanceDisplay component
   const TokenBalanceDisplay = ({ 
     tokenAddress, 
-    walletAddress, 
-    totalAmount, 
+    walletAddress,
+    totalAmount,
     userCount
   }: { 
     tokenAddress: string; 
-    walletAddress: string; 
-    totalAmount: string; 
+    walletAddress: string;
+    totalAmount: string;
     userCount: number;
   }) => {
     const [loading, setLoading] = useState(false);
     const [balance, setBalance] = useState<TokenBalance | null>(null);
     const [error, setError] = useState<string | null>(null);
+    const hasFetchedRef = useRef<string | null>(null);
     
-    const fetchBalance = async () => {
-      if (!tokenAddress || tokenAddress === 'custom' || !walletAddress) return;
-      
-      console.log(`Starting to fetch balance for ${tokenAddress}`);
-      setLoading(true);
-      setError(null);
-      
-      try {
-        // First try to find in predefined tokens
-        let currentTokenInfo = PREDEFINED_TOKENS.find(token => token.address === tokenAddress);
-        
-        // If not found in predefined tokens, create a basic token info
-        if (!currentTokenInfo) {
-          console.log('Token not found in predefined list, using default token info...');
-          currentTokenInfo = {
-            address: tokenAddress as `0x${string}`,
-            name: "Custom Token",
-            symbol: "CUSTOM",
-            decimals: 18,
-            isERC20: true,
-          };
-          console.log('Using default token info for custom token:', currentTokenInfo);
-        }
-        
-        if (currentTokenInfo) {
-          console.log(`Fetching balance for token: ${currentTokenInfo.symbol}`);
-          const balanceData = await getTokenBalance(tokenAddress as `0x${string}`, walletAddress as `0x${string}`, currentTokenInfo);
-          setBalance(balanceData);
-          console.log(`Successfully fetched balance for ${tokenAddress}`);
-        } else {
-          setError('Token not found or invalid address');
-        }
-      } catch (err) {
-        setError('Failed to fetch token balance');
-        console.error('Error fetching token balance:', err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
     // Auto-fetch balance when component mounts or tokenAddress changes
     useEffect(() => {
+      const fetchBalance = async () => {
+        if (!tokenAddress || tokenAddress === 'custom' || !walletAddress) return;
+        
+        // Prevent duplicate calls for the same token address
+        if (hasFetchedRef.current === tokenAddress) {
+          console.log(`Already fetched balance for ${tokenAddress}, skipping...`);
+          return;
+        }
+        
+        console.log(`Starting to fetch balance for ${tokenAddress}`);
+        setLoading(true);
+        setError(null);
+        hasFetchedRef.current = tokenAddress;
+        
+        try {
+          // First try to find in predefined tokens
+          let currentTokenInfo = PREDEFINED_TOKENS.find(token => token.address === tokenAddress);
+          
+          // If not found in predefined tokens, create a basic token info
+          if (!currentTokenInfo) {
+            console.log('Token not found in predefined list, using default token info...');
+            currentTokenInfo = {
+              address: tokenAddress as `0x${string}`,
+              name: "Custom Token",
+              symbol: "CUSTOM",
+              decimals: 18,
+              isERC20: true,
+            };
+            console.log('Using default token info for custom token:', currentTokenInfo);
+          }
+          
+          if (currentTokenInfo) {
+            console.log(`Fetching balance for token: ${currentTokenInfo.symbol}`);
+            const balanceData = await getTokenBalance(tokenAddress as `0x${string}`, walletAddress as `0x${string}`, currentTokenInfo);
+            setBalance(balanceData);
+            console.log(`Successfully fetched balance for ${tokenAddress}`);
+          } else {
+            setError('Token not found or invalid address');
+          }
+        } catch (err) {
+          setError('Failed to fetch token balance');
+          console.error('Error fetching token balance:', err);
+          hasFetchedRef.current = null; // Reset on error to allow retry
+        } finally {
+          setLoading(false);
+        }
+      };
+
       fetchBalance();
     }, [tokenAddress, walletAddress]);
 
