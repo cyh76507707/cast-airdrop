@@ -886,34 +886,60 @@ export async function getTokenInfo(
 ): Promise<TokenInfo | null> {
   try {
     if (!isValidTokenAddress(address)) {
+      console.log(`Invalid token address format: ${address}`);
       return null;
     }
 
-    const [name, symbol, decimals] = await Promise.all([
-      publicClient.readContract({
+    console.log(`Fetching token info for: ${address}`);
+
+    // Try to get token info with individual calls for better error handling
+    let name: string;
+    let symbol: string;
+    let decimals: number;
+
+    try {
+      name = await publicClient.readContract({
         address,
         abi: ERC20_ABI,
         functionName: "name",
-      }),
-      publicClient.readContract({
+      });
+    } catch (error) {
+      console.error(`Failed to get name for token ${address}:`, error);
+      name = "Unknown Token";
+    }
+
+    try {
+      symbol = await publicClient.readContract({
         address,
         abi: ERC20_ABI,
         functionName: "symbol",
-      }),
-      publicClient.readContract({
+      });
+    } catch (error) {
+      console.error(`Failed to get symbol for token ${address}:`, error);
+      symbol = "UNKNOWN";
+    }
+
+    try {
+      decimals = await publicClient.readContract({
         address,
         abi: ERC20_ABI,
         functionName: "decimals",
-      }),
-    ]);
+      });
+    } catch (error) {
+      console.error(`Failed to get decimals for token ${address}:`, error);
+      decimals = 18; // Default to 18 decimals
+    }
 
-    return {
+    const tokenInfo = {
       address,
       name,
       symbol,
       decimals,
       isERC20: true,
     };
+
+    console.log(`Successfully fetched token info:`, tokenInfo);
+    return tokenInfo;
   } catch (error) {
     console.error("Error getting token info:", error);
     return null;
@@ -1029,4 +1055,60 @@ export async function getAmountClaimed(
     console.error("Error getting amount claimed:", error);
     return 0n;
   }
+}
+
+// Get token logo with fallback system
+export async function getTokenLogo(
+  tokenAddress: string,
+  chainId: number = 8453 // Base network
+): Promise<string | null> {
+  // Step 1: Try Mint.club API first
+  try {
+    const mintClubUrl = `https://mint.club/api/tokens/logo?chainId=${chainId}&address=${tokenAddress}`;
+    const response = await fetch(mintClubUrl);
+    
+    if (response.ok) {
+      // Mint.club returns image data directly, so we return the API URL
+      console.log(`Found logo from Mint.club for token ${tokenAddress}`);
+      return mintClubUrl;
+    }
+  } catch (error) {
+    console.log(`Mint.club API failed for token ${tokenAddress}:`, error);
+  }
+
+  // Step 2: Fallback to Hunt.town API
+  try {
+    const fallbackUrl = `https://fc.hunt.town/tokens/logo/${chainId}/${tokenAddress}/image`;
+    const response = await fetch(fallbackUrl);
+    
+    if (response.ok) {
+      console.log(`Found logo from Hunt.town for token ${tokenAddress}`);
+      return fallbackUrl;
+    }
+  } catch (error) {
+    console.log(`Hunt.town API failed for token ${tokenAddress}:`, error);
+  }
+
+  console.log(`No logo found for token ${tokenAddress} from any source`);
+  return null;
+}
+
+// Cache for token logos to avoid repeated API calls
+const logoCache = new Map<string, string | null>();
+
+// Get token logo with caching
+export async function getTokenLogoCached(
+  tokenAddress: string,
+  chainId: number = 8453
+): Promise<string | null> {
+  const cacheKey = `${chainId}-${tokenAddress}`;
+  
+  if (logoCache.has(cacheKey)) {
+    return logoCache.get(cacheKey) || null;
+  }
+  
+  const logoUrl = await getTokenLogo(tokenAddress, chainId);
+  logoCache.set(cacheKey, logoUrl);
+  
+  return logoUrl;
 }

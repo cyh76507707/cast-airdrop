@@ -1,12 +1,13 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useFrame } from '~/components/providers/FrameProvider';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/Select';
 import { LoadingCard } from '@/components/ui/LoadingSpinner';
+import { TokenLogo } from '@/components/ui/TokenLogo';
 import { getAllCastUsers, getCastByHashOrUrl, transformCastToInfo, CastUser, CastEngagement, CastInfo } from '@/lib/neynar';
 import { 
   PREDEFINED_TOKENS, 
@@ -16,6 +17,7 @@ import {
   generateAirdropLink,
   getLatestAirdropId,
   TokenBalance,
+  TokenInfo,
   getTokenBalance,
   wei
 } from '@/lib/mintclub';
@@ -80,6 +82,9 @@ export default function CastAirdropPage() {
   const [airdropLink, setAirdropLink] = useState<string | null>(null);
   const [tokenBalance, _setTokenBalance] = useState<TokenBalance | null>(null);
   const [transactionStatus, setTransactionStatus] = useState<'idle' | 'preparing' | 'approval-signing' | 'approval-confirming' | 'approval-completed' | 'airdrop-signing' | 'airdrop-confirming' | 'completed' | 'error'>('idle');
+  
+
+  // Note: Removed handleTokenInfoUpdate to prevent infinite loops
   const [transactionHash, setTransactionHash] = useState<`0x${string}` | null>(null);
   const [approvalHash, setApprovalHash] = useState<`0x${string}` | null>(null);
   
@@ -112,39 +117,59 @@ export default function CastAirdropPage() {
     tokenAddress, 
     walletAddress, 
     totalAmount, 
-    userCount 
+    userCount
   }: { 
     tokenAddress: string; 
     walletAddress: string; 
     totalAmount: string; 
-    userCount: number; 
+    userCount: number;
   }) => {
     const [loading, setLoading] = useState(false);
     const [balance, setBalance] = useState<TokenBalance | null>(null);
     const [error, setError] = useState<string | null>(null);
-
-    useEffect(() => {
-      const fetchBalance = async () => {
-        if (!tokenAddress || tokenAddress === 'custom') return;
+    
+    const fetchBalance = async () => {
+      if (!tokenAddress || tokenAddress === 'custom' || !walletAddress) return;
+      
+      console.log(`Starting to fetch balance for ${tokenAddress}`);
+      setLoading(true);
+      setError(null);
+      
+      try {
+        // First try to find in predefined tokens
+        let currentTokenInfo = PREDEFINED_TOKENS.find(token => token.address === tokenAddress);
         
-        setLoading(true);
-        setError(null);
-        
-        try {
-          const tokenInfo = PREDEFINED_TOKENS.find(token => token.address === tokenAddress);
-          if (tokenInfo) {
-            const balanceData = await getTokenBalance(tokenAddress as `0x${string}`, walletAddress as `0x${string}`, tokenInfo);
-            setBalance(balanceData);
-            // Don't update global tokenBalance here to avoid infinite loop
-          }
-        } catch (err) {
-          setError('Failed to fetch token balance');
-          console.error('Error fetching token balance:', err);
-        } finally {
-          setLoading(false);
+        // If not found in predefined tokens, create a basic token info
+        if (!currentTokenInfo) {
+          console.log('Token not found in predefined list, using default token info...');
+          currentTokenInfo = {
+            address: tokenAddress as `0x${string}`,
+            name: "Custom Token",
+            symbol: "CUSTOM",
+            decimals: 18,
+            isERC20: true,
+          };
+          console.log('Using default token info for custom token:', currentTokenInfo);
         }
-      };
+        
+        if (currentTokenInfo) {
+          console.log(`Fetching balance for token: ${currentTokenInfo.symbol}`);
+          const balanceData = await getTokenBalance(tokenAddress as `0x${string}`, walletAddress as `0x${string}`, currentTokenInfo);
+          setBalance(balanceData);
+          console.log(`Successfully fetched balance for ${tokenAddress}`);
+        } else {
+          setError('Token not found or invalid address');
+        }
+      } catch (err) {
+        setError('Failed to fetch token balance');
+        console.error('Error fetching token balance:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
 
+    // Auto-fetch balance when component mounts or tokenAddress changes
+    useEffect(() => {
       fetchBalance();
     }, [tokenAddress, walletAddress]);
 
@@ -873,7 +898,8 @@ export default function CastAirdropPage() {
             options={[
               ...PREDEFINED_TOKENS.map(token => ({
                 value: token.address,
-                label: `${token.name} (${token.symbol})`
+                label: `${token.name} (${token.symbol})`,
+                tokenAddress: token.address
               })),
               { value: 'custom', label: 'Custom Token Address' }
             ]}
@@ -882,12 +908,48 @@ export default function CastAirdropPage() {
             placeholder="Select a token"
           />
           
-          {/* Display selected token information and balance */}
+          {airdropForm.tokenAddress === 'custom' && (
+            <Input
+              label="Custom Token Address"
+              placeholder="0x..."
+              onChange={(e) => setAirdropForm({ ...airdropForm, tokenAddress: e.target.value })}
+            />
+          )}
+
+          {/* Display token information and balance */}
           {airdropForm.tokenAddress && airdropForm.tokenAddress !== 'custom' && (
-            <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
-              <p className="text-sm font-medium text-blue-900 mb-2">
-                Selected: {PREDEFINED_TOKENS.find(token => token.address === airdropForm.tokenAddress)?.name || 'Unknown Token'}
-              </p>
+            <div className={`p-3 border rounded-lg ${
+              PREDEFINED_TOKENS.find(token => token.address === airdropForm.tokenAddress) 
+                ? 'bg-blue-50 border-blue-200' 
+                : 'bg-green-50 border-green-200'
+            }`}>
+              <div 
+                className="flex items-center space-x-2 mb-2 cursor-pointer hover:opacity-80 transition-opacity"
+                onClick={() => window.open(`https://basescan.org/token/${airdropForm.tokenAddress}`, '_blank')}
+              >
+                {airdropForm.tokenAddress && (
+                  <TokenLogo 
+                    tokenAddress={airdropForm.tokenAddress} 
+                    size="sm" 
+                    className="flex-shrink-0"
+                  />
+                )}
+                <p className={`text-sm font-medium ${
+                  PREDEFINED_TOKENS.find(token => token.address === airdropForm.tokenAddress) 
+                    ? 'text-blue-900' 
+                    : 'text-green-900'
+                }`}>
+                  {(() => {
+                    const predefinedToken = PREDEFINED_TOKENS.find(token => token.address === airdropForm.tokenAddress);
+                    if (predefinedToken) {
+                      return `${predefinedToken.symbol}: ${airdropForm.tokenAddress.slice(0, 6)}...${airdropForm.tokenAddress.slice(-6)}`;
+                    } else {
+                      return `Custom Token: ${airdropForm.tokenAddress.slice(0, 6)}...${airdropForm.tokenAddress.slice(-6)}`;
+                    }
+                  })()}
+                </p>
+                <span className="text-xs text-gray-500 ml-1">🔗</span>
+              </div>
               <TokenBalanceDisplay 
                 tokenAddress={airdropForm.tokenAddress}
                 walletAddress={address || ''}
@@ -895,14 +957,6 @@ export default function CastAirdropPage() {
                 userCount={users.length}
               />
             </div>
-          )}
-
-          {airdropForm.tokenAddress === 'custom' && (
-            <Input
-              label="Custom Token Address"
-              placeholder="0x..."
-              onChange={(e) => setAirdropForm({ ...airdropForm, tokenAddress: e.target.value })}
-            />
           )}
 
           <Input

@@ -1,10 +1,12 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { cn } from '@/lib/utils';
 import { ChevronDown, Check } from 'lucide-react';
+import { TokenLogo } from './TokenLogo';
 
 interface SelectOption {
   value: string;
   label: string;
+  tokenAddress?: string; // For token options with logos
 }
 
 interface SelectProps {
@@ -82,15 +84,24 @@ export function Select({
             className
           )}
         >
-          <span className={cn(
-            'truncate',
-            !selectedOption && 'text-gray-500'
-          )}>
-            {selectedOption ? selectedOption.label : placeholder}
-          </span>
+          <div className="flex items-center space-x-2 flex-1 min-w-0">
+            {selectedOption?.tokenAddress && (
+              <TokenLogo 
+                tokenAddress={selectedOption.tokenAddress} 
+                size="sm" 
+                className="flex-shrink-0"
+              />
+            )}
+            <span className={cn(
+              'truncate',
+              !selectedOption && 'text-gray-500'
+            )}>
+              {selectedOption ? selectedOption.label : placeholder}
+            </span>
+          </div>
           <ChevronDown 
             className={cn(
-              'h-4 w-4 text-blue-600 transition-transform duration-200',
+              'h-4 w-4 text-blue-600 transition-transform duration-200 flex-shrink-0',
               isOpen && 'rotate-180'
             )}
           />
@@ -109,9 +120,18 @@ export function Select({
                     selectedValue === option.value && 'bg-blue-50 text-blue-900'
                   )}
                 >
-                  <span className="truncate">{option.label}</span>
+                  <div className="flex items-center space-x-2 flex-1 min-w-0">
+                    {option.tokenAddress && (
+                      <TokenLogo 
+                        tokenAddress={option.tokenAddress} 
+                        size="sm" 
+                        className="flex-shrink-0"
+                      />
+                    )}
+                    <span className="truncate">{option.label}</span>
+                  </div>
                   {selectedValue === option.value && (
-                    <Check className="h-4 w-4 text-blue-600" />
+                    <Check className="h-4 w-4 text-blue-600 flex-shrink-0" />
                   )}
                 </button>
               ))}

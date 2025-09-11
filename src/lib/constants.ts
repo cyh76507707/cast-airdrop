@@ -140,7 +140,7 @@ export const RETURN_URL: string | undefined = undefined;
 export const NETWORK = {
   BASE: "base",                    // Mint.club SDK network name
   CHAIN_ID: 8453,                 // Base Mainnet Chain ID
-  RPC_URL: "https://1rpc.io/base", // Using 1RPC's free Base RPC
+  RPC_URL: "https://mainnet.base.org", // Using Base's official RPC
   EXPLORER: "https://basescan.org",
   ETH_ADDRESS: "0x4200000000000000000000000000000000000006", // Base ETH address
 } as const;
