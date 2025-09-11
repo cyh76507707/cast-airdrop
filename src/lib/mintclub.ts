@@ -18,6 +18,130 @@ import {
 import { config } from "~/lib/rainbowkit";
 import { EMPTY_ROOT, MERKLE_DISTRIBUTOR_ADDRESS, NETWORK } from "./constants";
 
+// User-friendly progress message types
+export interface ProgressMessage {
+  type: 'info' | 'success' | 'warning' | 'error';
+  message: string;
+  details?: string;
+}
+
+export interface ProgressCallback {
+  onProgress?: (message: ProgressMessage) => void;
+}
+
+// RPC rotation system for rate limit mitigation
+let currentRpcIndex = 0;
+
+function getNextRpcUrl(): string {
+  const rpcUrl = NETWORK.RPC_ENDPOINTS[currentRpcIndex];
+  currentRpcIndex = (currentRpcIndex + 1) % NETWORK.RPC_ENDPOINTS.length;
+  console.log(`Using RPC endpoint: ${rpcUrl}`);
+  return rpcUrl;
+}
+
+function createPublicClientWithRotation() {
+  return createPublicClient({
+    chain: base,
+    transport: http(getNextRpcUrl()),
+  });
+}
+
+// Enhanced RPC client with automatic fallback, faster timeout, and user-friendly messages
+async function createPublicClientWithFallback(progressCallback?: ProgressCallback) {
+  const maxRetries = NETWORK.RPC_ENDPOINTS.length;
+  let lastError: Error | null = null;
+  
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    const rpcUrl = getNextRpcUrl();
+    const rpcName = getRpcDisplayName(rpcUrl);
+    
+    try {
+      // Show progress message
+      progressCallback?.onProgress?.({
+        type: 'info',
+        message: `Connecting to ${rpcName}...`,
+        details: `Attempt ${attempt + 1} of ${maxRetries}`
+      });
+      
+      const client = createPublicClient({
+        chain: base,
+        transport: http(rpcUrl, {
+          timeout: 5000, // 5초 타임아웃으로 단축
+          retryCount: 1, // 재시도 횟수 줄임
+          retryDelay: 1000, // 재시도 간격 단축
+        }),
+      });
+      
+      // Test the connection with a simple call and timeout
+      const chainIdPromise = client.getChainId();
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Connection timeout')), 3000)
+      );
+      
+      await Promise.race([chainIdPromise, timeoutPromise]);
+      
+      // Success message
+      progressCallback?.onProgress?.({
+        type: 'success',
+        message: `Connected to ${rpcName}`,
+        details: 'Ready to process your request'
+      });
+      
+      console.log(`Successfully connected to RPC: ${rpcUrl}`);
+      return client;
+    } catch (error) {
+      lastError = error as Error;
+      console.warn(`RPC attempt ${attempt + 1} failed:`, error);
+      
+      // Show failure message with countdown
+      const remainingAttempts = maxRetries - attempt - 1;
+      if (remainingAttempts > 0) {
+        progressCallback?.onProgress?.({
+          type: 'warning',
+          message: `${rpcName} connection failed`,
+          details: `Trying next RPC in 1 second... (${remainingAttempts} attempts remaining)`
+        });
+        
+        // Wait 1 second before next attempt
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      }
+      
+      // If it's a CORS error, network error, or timeout, try next RPC immediately
+      if (error instanceof Error && (
+        error.message.includes('CORS') || 
+        error.message.includes('Failed to fetch') ||
+        error.message.includes('rate limited') ||
+        error.message.includes('HTTP request failed') ||
+        error.message.includes('timeout') ||
+        error.message.includes('Connection timeout')
+      )) {
+        console.log('Network/CORS/timeout error detected, trying next RPC...');
+        continue;
+      }
+    }
+  }
+  
+  // All RPCs failed
+  progressCallback?.onProgress?.({
+    type: 'error',
+    message: 'All RPC endpoints failed',
+    details: `Last error: ${lastError?.message}`
+  });
+  
+  throw new Error(`All RPC endpoints failed. Last error: ${lastError?.message}`);
+}
+
+// Helper function to get user-friendly RPC names
+function getRpcDisplayName(rpcUrl: string): string {
+  if (rpcUrl.includes('mainnet.base.org')) return 'Base Official';
+  if (rpcUrl.includes('blockpi.network')) return 'BlockPI';
+  if (rpcUrl.includes('llamarpc.com')) return 'LlamaRPC';
+  if (rpcUrl.includes('drpc.org')) return 'DRPC';
+  if (rpcUrl.includes('meowrpc.com')) return 'MeowRPC';
+  if (rpcUrl.includes('publicnode.com')) return 'PublicNode';
+  return 'Unknown RPC';
+}
+
 // Wei conversion function (similar to mint.club implementation)
 export function wei(num: number | string, decimals = 18): bigint {
   const stringified = num.toString();
@@ -29,16 +153,11 @@ export function wei(num: number | string, decimals = 18): bigint {
   }
 }
 
-// Custom wait for transaction function (similar to mint.club-v2-web)
+// Custom wait for transaction function with RPC fallback for rate limit mitigation
 export async function customWaitForTransaction(
   chainId: number,
   tx: Hash
 ): Promise<any> {
-  const publicClient = createPublicClient({
-    chain: base,
-    transport: http(NETWORK.RPC_URL),
-  });
-
   let receipt: any;
   let attempts = 0;
   const MAX_TRIES = 30;
@@ -48,12 +167,25 @@ export async function customWaitForTransaction(
 
   while (!receipt && attempts < MAX_TRIES) {
     try {
+      // Use RPC fallback for each attempt to avoid rate limits and CORS issues
+      const publicClient = await createPublicClientWithFallback();
       receipt = await publicClient.getTransactionReceipt({ hash: tx });
       if (receipt) {
         break;
       }
     } catch (error) {
-      // Transaction not found yet, continue waiting
+      console.log(`Attempt ${attempts + 1} failed, retrying with different RPC...`);
+      // If it's a rate limit or CORS error, try with next RPC immediately
+      if (error instanceof Error && (
+        error.message.includes('rate limited') ||
+        error.message.includes('CORS') ||
+        error.message.includes('Failed to fetch') ||
+        error.message.includes('HTTP request failed')
+      )) {
+        console.log('Network error detected, switching to next RPC endpoint');
+        // Don't wait, try immediately with next RPC
+        continue;
+      }
     }
 
     attempts++;
@@ -219,11 +351,8 @@ const ERC20_ABI = [
   },
 ] as const;
 
-// Create public client for read operations
-const publicClient = createPublicClient({
-  chain: base,
-  transport: http(NETWORK.RPC_URL),
-});
+// Create public client for read operations with RPC rotation
+const publicClient = createPublicClientWithRotation();
 
 // Create wallet client for write operations
 async function createWalletClientFromWindow() {
@@ -496,13 +625,10 @@ async function getUserAddress(): Promise<Address> {
   return account.address as Address;
 }
 
-// Get token decimals
+// Get token decimals with RPC fallback
 export async function getTokenDecimals(tokenAddress: Address): Promise<number> {
   try {
-    const publicClient = createPublicClient({
-      chain: base,
-      transport: http(NETWORK.RPC_URL),
-    });
+    const publicClient = await createPublicClientWithFallback();
 
     const decimals = await publicClient.readContract({
       address: tokenAddress,
@@ -517,11 +643,12 @@ export async function getTokenDecimals(tokenAddress: Address): Promise<number> {
   }
 }
 
-// Check token allowance
+// Check token allowance with RPC fallback
 export async function checkTokenAllowance(
   userAddress: Address,
   tokenAddress: Address,
-  requiredAmount: bigint
+  requiredAmount: bigint,
+  progressCallback?: ProgressCallback
 ): Promise<boolean> {
   try {
     console.log("Checking token allowance:", {
@@ -530,10 +657,7 @@ export async function checkTokenAllowance(
       requiredAmount: requiredAmount.toString(),
     });
 
-    const publicClient = createPublicClient({
-      chain: base,
-      transport: http(NETWORK.RPC_URL),
-    });
+    const publicClient = await createPublicClientWithFallback(progressCallback);
 
     const allowance = await publicClient.readContract({
       address: tokenAddress,
@@ -656,6 +780,7 @@ export async function createAirdrop(
     onSigned?: (txHash: Hash) => void;
     onSuccess?: (receipt: any) => void;
     onError?: (error: unknown) => void;
+    onProgress?: (message: ProgressMessage) => void;
   }
 ) {
   try {
@@ -670,10 +795,7 @@ export async function createAirdrop(
     // Validate token address first
     console.log("Validating token address...");
     try {
-      const publicClient = createPublicClient({
-        chain: base,
-        transport: http(NETWORK.RPC_URL),
-      });
+      const publicClient = await createPublicClientWithFallback();
 
       const [tokenName, tokenSymbol, tokenDecimals] = await Promise.all([
         publicClient.readContract({
@@ -725,67 +847,103 @@ export async function createAirdrop(
       tokenDecimals: tokenDecimals,
     });
 
-    // Step 1: Always request token approval (to ensure sufficient allowance)
-    console.log("Requesting token approval...");
-    if (callbacks?.onAllowanceSignatureRequest) {
-      callbacks.onAllowanceSignatureRequest();
-    }
-
-    // Always request token approval to ensure sufficient allowance
-    await approveTokenForAirdrop(airdropConfig.token as Address, totalAmountWei, {
-      onSignatureRequest: () => {
-        console.log("Token approval signature requested");
-        if (callbacks?.onAllowanceSignatureRequest) {
-          callbacks.onAllowanceSignatureRequest();
-        }
-      },
-      onSigned: (txHash) => {
-        console.log("Token approval signed:", txHash);
-        if (callbacks?.onAllowanceSigned) {
-          callbacks.onAllowanceSigned(txHash);
-        }
-      },
-      onSuccess: (receipt) => {
-        console.log("Token approval completed:", receipt);
-        if (callbacks?.onAllowanceSuccess) {
-          callbacks.onAllowanceSuccess(receipt);
-        }
-      },
-      onError: (error) => {
-        console.error("Token approval failed:", error);
-        if (callbacks?.onError) {
-          callbacks.onError(error);
-        }
-      },
+    // Step 1: Check current allowance first, only approve if necessary
+    console.log("Checking current token allowance...");
+    callbacks?.onProgress?.({
+      type: 'info',
+      message: 'Checking token allowance...',
+      details: 'Verifying spending permissions'
     });
+    
+    const hasSufficientAllowance = await checkTokenAllowance(
+      userAddress,
+      airdropConfig.token as Address,
+      totalAmountWei,
+      callbacks
+    );
 
-    // Wait a bit for the approval to be fully processed on the blockchain
-    console.log("Waiting for approval to be fully processed...");
-    await new Promise(resolve => setTimeout(resolve, 2000));
+    if (!hasSufficientAllowance) {
+      console.log("Insufficient allowance, requesting token approval...");
+      callbacks?.onProgress?.({
+        type: 'warning',
+        message: 'Insufficient token allowance',
+        details: 'Requesting approval for token spending'
+      });
+      
+      if (callbacks?.onAllowanceSignatureRequest) {
+        callbacks.onAllowanceSignatureRequest();
+      }
 
-    // Verify allowance before proceeding
-    console.log("Verifying token allowance...");
-    const publicClient = createPublicClient({
-      chain: base,
-      transport: http(NETWORK.RPC_URL),
-    });
+      // Only request token approval if allowance is insufficient
+      await approveTokenForAirdrop(airdropConfig.token as Address, totalAmountWei, {
+        onSignatureRequest: () => {
+          console.log("Token approval signature requested");
+          if (callbacks?.onAllowanceSignatureRequest) {
+            callbacks.onAllowanceSignatureRequest();
+          }
+        },
+        onSigned: (txHash) => {
+          console.log("Token approval signed:", txHash);
+          if (callbacks?.onAllowanceSigned) {
+            callbacks.onAllowanceSigned(txHash);
+          }
+        },
+        onSuccess: (receipt) => {
+          console.log("Token approval completed:", receipt);
+          if (callbacks?.onAllowanceSuccess) {
+            callbacks.onAllowanceSuccess(receipt);
+          }
+        },
+        onError: (error) => {
+          console.error("Token approval failed:", error);
+          if (callbacks?.onError) {
+            callbacks.onError(error);
+          }
+        },
+      });
 
-    const currentAllowance = await publicClient.readContract({
-      address: airdropConfig.token as Address,
-      abi: ERC20_ABI,
-      functionName: "allowance",
-      args: [userAddress, MERKLE_DISTRIBUTOR_ADDRESS],
-    });
+      // Wait a bit for the approval to be fully processed on the blockchain
+      console.log("Waiting for approval to be fully processed...");
+      await new Promise(resolve => setTimeout(resolve, 2000));
 
-    console.log("Current allowance:", currentAllowance.toString());
-    console.log("Required amount:", totalAmountWei.toString());
+      // Verify allowance after approval
+      console.log("Verifying token allowance after approval...");
+      const publicClient = await createPublicClientWithFallback();
 
-    if (currentAllowance < totalAmountWei) {
-      throw new Error(`Insufficient allowance. Current: ${currentAllowance.toString()}, Required: ${totalAmountWei.toString()}`);
+      const currentAllowance = await publicClient.readContract({
+        address: airdropConfig.token as Address,
+        abi: ERC20_ABI,
+        functionName: "allowance",
+        args: [userAddress, MERKLE_DISTRIBUTOR_ADDRESS],
+      });
+
+      console.log("Current allowance:", currentAllowance.toString());
+      console.log("Required amount:", totalAmountWei.toString());
+
+      if (currentAllowance < totalAmountWei) {
+        throw new Error(`Insufficient allowance after approval. Current: ${currentAllowance.toString()}, Required: ${totalAmountWei.toString()}`);
+      }
+    } else {
+      console.log("Sufficient allowance already exists, skipping approval step");
+      callbacks?.onProgress?.({
+        type: 'success',
+        message: 'Token allowance verified',
+        details: 'Sufficient spending permissions already exist'
+      });
+      
+      // Call success callback to maintain UI consistency
+      if (callbacks?.onAllowanceSuccess) {
+        callbacks.onAllowanceSuccess({ status: 'skipped', message: 'Sufficient allowance already exists' });
+      }
     }
 
     // Step 2: Create airdrop
     console.log("Creating airdrop by calling MerkleDistributor contract...");
+    callbacks?.onProgress?.({
+      type: 'info',
+      message: 'Creating airdrop...',
+      details: 'Preparing smart contract transaction'
+    });
 
     // Call signature request callback
     if (callbacks?.onSignatureRequest) {
@@ -858,11 +1016,12 @@ export async function createAirdrop(
   }
 }
 
-// Get the latest airdrop ID
+// Get the latest airdrop ID with RPC fallback
 export async function getLatestAirdropId(): Promise<number> {
   try {
     console.log("Getting latest airdrop ID...");
 
+    const publicClient = await createPublicClientWithFallback();
     const totalCount = await publicClient.readContract({
       address: MERKLE_DISTRIBUTOR_ADDRESS,
       abi: MERKLE_DISTRIBUTOR_ABI,
@@ -892,11 +1051,12 @@ export async function getLatestAirdropId(): Promise<number> {
   }
 }
 
-// Get airdrop information by ID
+// Get airdrop information by ID with RPC fallback
 export async function getAirdropById(airdropId: number): Promise<Distribution> {
   try {
     console.log("Getting airdrop by ID:", airdropId);
 
+    const publicClient = await createPublicClientWithFallback();
     const distribution = await publicClient.readContract({
       address: MERKLE_DISTRIBUTOR_ADDRESS,
       abi: MERKLE_DISTRIBUTOR_ABI,
@@ -936,7 +1096,7 @@ export function isValidTokenAddress(address: string): boolean {
   return /^0x[a-fA-F0-9]{40}$/.test(address);
 }
 
-// Get token info from contract
+// Get token info from contract with RPC fallback
 export async function getTokenInfo(
   address: Address
 ): Promise<TokenInfo | null> {
@@ -948,6 +1108,9 @@ export async function getTokenInfo(
 
     console.log(`Fetching token info for: ${address}`);
 
+    // Use a single client for all calls to maintain consistency
+    const publicClient = await createPublicClientWithFallback();
+    
     // Try to get token info with individual calls for better error handling
     let name: string;
     let symbol: string;
@@ -1002,13 +1165,31 @@ export async function getTokenInfo(
   }
 }
 
-// Get token balance for a specific wallet
+// Get token balance for a specific wallet with RPC fallback and user-friendly messages
 export async function getTokenBalance(
   tokenAddress: Address,
   walletAddress: Address,
-  tokenInfo: TokenInfo
+  tokenInfo: TokenInfo,
+  progressCallback?: ProgressCallback
 ): Promise<TokenBalance | null> {
   try {
+    console.log(`Starting to fetch balance for ${tokenAddress}`);
+    console.log(`Fetching balance for token: ${tokenInfo.symbol}`);
+    
+    progressCallback?.onProgress?.({
+      type: 'info',
+      message: `Fetching ${tokenInfo.symbol} balance...`,
+      details: 'Connecting to blockchain network'
+    });
+    
+    const publicClient = await createPublicClientWithFallback(progressCallback);
+    
+    progressCallback?.onProgress?.({
+      type: 'info',
+      message: `Reading ${tokenInfo.symbol} balance...`,
+      details: 'Querying smart contract'
+    });
+    
     const balance = await publicClient.readContract({
       address: tokenAddress,
       abi: ERC20_ABI,
@@ -1016,23 +1197,41 @@ export async function getTokenBalance(
       args: [walletAddress],
     });
 
+    const formattedBalance = (Number(balance) / 10 ** tokenInfo.decimals).toFixed(4);
+    
+    progressCallback?.onProgress?.({
+      type: 'success',
+      message: `Balance loaded: ${formattedBalance} ${tokenInfo.symbol}`,
+      details: 'Ready to configure airdrop'
+    });
+
+    console.log(`Successfully fetched balance: ${balance.toString()}`);
+
     return {
       token: tokenInfo,
       balance,
-      formattedBalance: (Number(balance) / 10 ** tokenInfo.decimals).toFixed(4),
+      formattedBalance,
     };
   } catch (error) {
     console.error("Error getting token balance:", error);
+    
+    progressCallback?.onProgress?.({
+      type: 'error',
+      message: `Failed to load ${tokenInfo.symbol} balance`,
+      details: error instanceof Error ? error.message : 'Unknown error'
+    });
+    
     return null;
   }
 }
 
-// Check if a wallet has claimed tokens for a specific distribution
+// Check if a wallet has claimed tokens for a specific distribution with RPC fallback
 export async function isClaimed(
   distributionId: number,
   wallet: Address
 ): Promise<boolean> {
   try {
+    const publicClient = await createPublicClientWithFallback();
     return await publicClient.readContract({
       address: MERKLE_DISTRIBUTOR_ADDRESS,
       abi: MERKLE_DISTRIBUTOR_ABI,
@@ -1045,11 +1244,12 @@ export async function isClaimed(
   }
 }
 
-// Check if a distribution is whitelist-only
+// Check if a distribution is whitelist-only with RPC fallback
 export async function isWhitelistOnly(
   distributionId: number
 ): Promise<boolean> {
   try {
+    const publicClient = await createPublicClientWithFallback();
     return await publicClient.readContract({
       address: MERKLE_DISTRIBUTOR_ADDRESS,
       abi: MERKLE_DISTRIBUTOR_ABI,
@@ -1062,13 +1262,14 @@ export async function isWhitelistOnly(
   }
 }
 
-// Check if a wallet is whitelisted for a distribution
+// Check if a wallet is whitelisted for a distribution with RPC fallback
 export async function isWhitelisted(
   distributionId: number,
   wallet: Address,
   merkleProof: Hash[]
 ): Promise<boolean> {
   try {
+    const publicClient = await createPublicClientWithFallback();
     return await publicClient.readContract({
       address: MERKLE_DISTRIBUTOR_ADDRESS,
       abi: MERKLE_DISTRIBUTOR_ABI,
@@ -1081,9 +1282,10 @@ export async function isWhitelisted(
   }
 }
 
-// Get amount left for a distribution
+// Get amount left for a distribution with RPC fallback
 export async function getAmountLeft(distributionId: number): Promise<bigint> {
   try {
+    const publicClient = await createPublicClientWithFallback();
     return await publicClient.readContract({
       address: MERKLE_DISTRIBUTOR_ADDRESS,
       abi: MERKLE_DISTRIBUTOR_ABI,
@@ -1096,11 +1298,12 @@ export async function getAmountLeft(distributionId: number): Promise<bigint> {
   }
 }
 
-// Get amount claimed for a distribution
+// Get amount claimed for a distribution with RPC fallback
 export async function getAmountClaimed(
   distributionId: number
 ): Promise<bigint> {
   try {
+    const publicClient = await createPublicClientWithFallback();
     return await publicClient.readContract({
       address: MERKLE_DISTRIBUTOR_ADDRESS,
       abi: MERKLE_DISTRIBUTOR_ABI,

@@ -81,7 +81,8 @@ export default function CastAirdropPage() {
   });
   const [airdropLink, setAirdropLink] = useState<string | null>(null);
   const [tokenBalance, _setTokenBalance] = useState<TokenBalance | null>(null);
-  const [transactionStatus, setTransactionStatus] = useState<'idle' | 'preparing' | 'approval-signing' | 'approval-confirming' | 'approval-completed' | 'airdrop-signing' | 'airdrop-confirming' | 'completed' | 'error'>('idle');
+  const [transactionStatus, setTransactionStatus] = useState<'idle' | 'preparing' | 'approval-signing' | 'approval-confirming' | 'approval-completed' | 'airdrop-signing' | 'airdrop-confirming' | 'completed' | 'error' | 'id-fetch-failed'>('idle');
+  const [progressMessage, setProgressMessage] = useState<{type: string, message: string, details?: string} | null>(null);
   
 
   // Note: Removed handleTokenInfoUpdate to prevent infinite loops
@@ -127,14 +128,30 @@ export default function CastAirdropPage() {
     const [loading, setLoading] = useState(false);
     const [balance, setBalance] = useState<TokenBalance | null>(null);
     const [error, setError] = useState<string | null>(null);
+    const [progressMessage, setProgressMessage] = useState<{type: string, message: string, details?: string} | null>(null);
     const hasFetchedRef = useRef<string | null>(null);
+    const progressTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+    
+    // Reset cache when token address changes
+    useEffect(() => {
+      hasFetchedRef.current = null;
+    }, [tokenAddress]);
+    
+    // Cleanup timeout on unmount
+    useEffect(() => {
+      return () => {
+        if (progressTimeoutRef.current) {
+          clearTimeout(progressTimeoutRef.current);
+        }
+      };
+    }, []);
     
     // Auto-fetch balance when component mounts or tokenAddress changes
     useEffect(() => {
       const fetchBalance = async () => {
         if (!tokenAddress || tokenAddress === 'custom' || !walletAddress) return;
         
-        // Prevent duplicate calls for the same token address
+        // Prevent duplicate calls for the same token address within the same session
         if (hasFetchedRef.current === tokenAddress) {
           console.log(`Already fetched balance for ${tokenAddress}, skipping...`);
           return;
@@ -143,6 +160,7 @@ export default function CastAirdropPage() {
         console.log(`Starting to fetch balance for ${tokenAddress}`);
         setLoading(true);
         setError(null);
+        setProgressMessage(null);
         hasFetchedRef.current = tokenAddress;
         
         try {
@@ -164,7 +182,32 @@ export default function CastAirdropPage() {
           
           if (currentTokenInfo) {
             console.log(`Fetching balance for token: ${currentTokenInfo.symbol}`);
-            const balanceData = await getTokenBalance(tokenAddress as `0x${string}`, walletAddress as `0x${string}`, currentTokenInfo);
+            const balanceData = await getTokenBalance(
+              tokenAddress as `0x${string}`, 
+              walletAddress as `0x${string}`, 
+              currentTokenInfo,
+              {
+                onProgress: (message) => {
+                  // Clear existing timeout
+                  if (progressTimeoutRef.current) {
+                    clearTimeout(progressTimeoutRef.current);
+                  }
+                  
+                  setProgressMessage({
+                    type: message.type,
+                    message: message.message,
+                    details: message.details
+                  });
+                  
+                  // Auto-hide message after 3 seconds for success messages
+                  if (message.type === 'success') {
+                    progressTimeoutRef.current = setTimeout(() => {
+                      setProgressMessage(null);
+                    }, 3000);
+                  }
+                }
+              }
+            );
             setBalance(balanceData);
             console.log(`Successfully fetched balance for ${tokenAddress}`);
           } else {
@@ -176,18 +219,45 @@ export default function CastAirdropPage() {
           hasFetchedRef.current = null; // Reset on error to allow retry
         } finally {
           setLoading(false);
+          // Don't reset progressMessage here - let it show the final result
         }
       };
 
       fetchBalance();
     }, [tokenAddress, walletAddress]);
 
+    // Show progress message even when not loading (for success/error states)
+    const showProgressMessage = progressMessage && (
+      <div className={`text-xs p-2 rounded-md mb-2 ${
+        progressMessage.type === 'info' ? 'bg-blue-50 text-blue-700' :
+        progressMessage.type === 'success' ? 'bg-green-50 text-green-700' :
+        progressMessage.type === 'warning' ? 'bg-yellow-50 text-yellow-700' :
+        progressMessage.type === 'error' ? 'bg-red-50 text-red-700' :
+        'bg-gray-50 text-gray-700'
+      }`}>
+        <div className="font-medium">{progressMessage.message}</div>
+        {progressMessage.details && (
+          <div className="text-xs opacity-75 mt-1">{progressMessage.details}</div>
+        )}
+      </div>
+    );
+
     if (loading) {
-      return <div className="text-sm text-gray-600">Loading balance...</div>;
+      return (
+        <div className="space-y-2">
+          <div className="text-sm text-gray-600">Loading balance...</div>
+          {showProgressMessage}
+        </div>
+      );
     }
 
     if (error) {
-      return <div className="text-sm text-red-600">Error: {error}</div>;
+      return (
+        <div className="space-y-2">
+          <div className="text-sm text-red-600">Error: {error}</div>
+          {showProgressMessage}
+        </div>
+      );
     }
 
     if (!balance) {
@@ -200,6 +270,7 @@ export default function CastAirdropPage() {
 
     return (
       <div className="mt-3 space-y-2">
+        {showProgressMessage}
         <div className="flex justify-between text-sm">
           <span className="text-gray-700 font-medium">Your Balance:</span>
           <span className="font-semibold text-gray-900">{balance.formattedBalance} {balance.token.symbol}</span>
@@ -466,31 +537,50 @@ export default function CastAirdropPage() {
           }
           
           throw error;
-        }
+        },
+        // Progress callback for RPC connection status
+        onProgress: (message) => {
+          console.log('Airdrop progress:', message);
+          setProgressMessage({
+            type: message.type,
+            message: message.message,
+            details: message.details
+          });
+        },
       });
 
       // Step 7: Wait for blockchain confirmation and get airdrop ID
       console.log('Waiting for blockchain confirmation...');
       await new Promise(resolve => setTimeout(resolve, 5000));
       
-      let airdropId: number;
+      let airdropId: number | null = null;
       
       try {
         // Get the latest airdrop ID from the blockchain
         airdropId = await getLatestAirdropId();
         console.log('Got actual airdrop ID:', airdropId);
+        
+        // Step 8: Generate MintClub airdrop page link
+        const link = generateAirdropLink(airdropId);
+        setAirdropLink(link);
+        setCompletedSteps(prev => new Set([...prev, 'completion']));
+        setCurrentStep('completion');
+        setTransactionStatus('completed');
+        
+        console.log('Airdrop created successfully! Link:', link);
       } catch (error) {
-        console.warn('Could not get actual airdrop ID, using mock:', error);
-        airdropId = Math.floor(Math.random() * 10000);
+        console.warn('Could not get actual airdrop ID:', error);
+        setTransactionStatus('id-fetch-failed');
+        setCompletedSteps(prev => new Set([...prev, 'completion']));
+        setCurrentStep('completion');
+        
+        // Show progress message about the issue
+        setProgressMessage({
+          type: 'warning',
+          message: 'Airdrop created but ID retrieval failed',
+          details: 'Due to network rate limiting, we could not fetch the airdrop ID'
+        });
       }
-      
-      // Step 8: Generate MintClub airdrop page link
-      const link = generateAirdropLink(airdropId);
-      setAirdropLink(link);
-      setCompletedSteps(prev => new Set([...prev, 'completion']));
-      setCurrentStep('completion');
-      
-      console.log('Airdrop created successfully! Link:', link);
     } catch (err) {
       console.error('Error in handleCreateAirdrop:', err);
       setTransactionStatus('error');
@@ -1096,6 +1186,9 @@ export default function CastAirdropPage() {
               {transactionStatus === 'completed' && (
                 <div className="w-4 h-4 text-green-500">✅</div>
               )}
+              {transactionStatus === 'id-fetch-failed' && (
+                <div className="w-4 h-4 text-yellow-500">⚠️</div>
+              )}
               {transactionStatus === 'error' && (
                 <div className="w-4 h-4 text-red-500">❌</div>
               )}
@@ -1108,9 +1201,26 @@ export default function CastAirdropPage() {
                 {transactionStatus === 'airdrop-signing' && 'Creating Airdrop...'}
                 {transactionStatus === 'airdrop-confirming' && 'Confirming Airdrop Creation...'}
                 {transactionStatus === 'completed' && 'Airdrop Created Successfully!'}
+                {transactionStatus === 'id-fetch-failed' && 'Airdrop Created (ID Retrieval Failed)'}
                 {transactionStatus === 'error' && 'Transaction Failed'}
               </span>
             </div>
+            
+            {/* Progress Message Display */}
+            {progressMessage && (
+              <div className={`text-xs p-3 rounded-md mt-2 ${
+                progressMessage.type === 'info' ? 'bg-blue-50 text-blue-700 border border-blue-200' :
+                progressMessage.type === 'success' ? 'bg-green-50 text-green-700 border border-green-200' :
+                progressMessage.type === 'warning' ? 'bg-yellow-50 text-yellow-700 border border-yellow-200' :
+                progressMessage.type === 'error' ? 'bg-red-50 text-red-700 border border-red-200' :
+                'bg-gray-50 text-gray-700 border border-gray-200'
+              }`}>
+                <div className="font-medium">{progressMessage.message}</div>
+                {progressMessage.details && (
+                  <div className="text-xs opacity-75 mt-1">{progressMessage.details}</div>
+                )}
+              </div>
+            )}
             
             {approvalHash && (
               <div className="text-xs text-gray-600 break-all mb-1">
@@ -1164,7 +1274,27 @@ export default function CastAirdropPage() {
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        {airdropLink && (
+        {transactionStatus === 'id-fetch-failed' ? (
+          // ID fetch failed - show dashboard link instead
+          <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+            <p className="text-sm text-yellow-800 mb-2">⚠️ Airdrop ID Retrieval Failed</p>
+            <p className="text-sm text-yellow-700 mb-3">
+              Your airdrop was successfully created, but we couldn't retrieve the airdrop ID due to network rate limiting.
+            </p>
+            <p className="text-sm text-yellow-700 mb-3">
+              Please visit the Mint Club creator dashboard to find your airdrop:
+            </p>
+            <a 
+              href="https://mint.club/dashboard/airdrops"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-block px-4 py-2 bg-yellow-600 text-white text-sm rounded-md hover:bg-yellow-700 transition-colors"
+            >
+              Go to Creator Dashboard
+            </a>
+          </div>
+        ) : airdropLink ? (
+          // Normal success case
           <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
             <p className="text-sm text-green-800 mb-2">Airdrop Link:</p>
             <a 
@@ -1176,7 +1306,7 @@ export default function CastAirdropPage() {
               {airdropLink}
             </a>
           </div>
-        )}
+        ) : null}
         
         {/* Tip Box */}
         <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
@@ -1193,12 +1323,21 @@ export default function CastAirdropPage() {
         >
           Create Another
         </Button>
-        <Button 
-          onClick={copyToClipboard}
-          className="flex-1"
-        >
-          Copy Link
-        </Button>
+        {transactionStatus === 'id-fetch-failed' ? (
+          <Button 
+            onClick={() => window.open('https://mint.club/dashboard/airdrops', '_blank')}
+            className="flex-1"
+          >
+            Go to Dashboard
+          </Button>
+        ) : (
+          <Button 
+            onClick={copyToClipboard}
+            className="flex-1"
+          >
+            Copy Link
+          </Button>
+        )}
       </CardFooter>
     </Card>
   );

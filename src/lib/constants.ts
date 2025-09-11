@@ -141,6 +141,16 @@ export const NETWORK = {
   BASE: "base",                    // Mint.club SDK network name
   CHAIN_ID: 8453,                 // Base Mainnet Chain ID
   RPC_URL: "https://mainnet.base.org", // Using Base's official RPC
+  
+  // RPC rotation endpoints for rate limit mitigation (CORS-enabled endpoints only)
+  RPC_ENDPOINTS: [
+    "https://mainnet.base.org", // Base official RPC
+    "https://base.blockpi.network/v1/rpc/public", // BlockPI public endpoint
+    "https://base.llamarpc.com", // LlamaRPC endpoint
+    "https://base.drpc.org", // DRPC endpoint
+    "https://base.meowrpc.com", // MeowRPC endpoint
+    "https://base-rpc.publicnode.com", // PublicNode endpoint
+  ],
   EXPLORER: "https://basescan.org",
   ETH_ADDRESS: "0x4200000000000000000000000000000000000006", // Base ETH address
 } as const;
