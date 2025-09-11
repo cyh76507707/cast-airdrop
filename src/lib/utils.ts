@@ -155,7 +155,7 @@ export async function getFarcasterDomainManifest(): Promise<FrameManifest> {
     accountAssociation,
     frame: {
       version: "1",
-      name: APP_NAME ?? "Cast Airdrop",
+      name: APP_NAME ?? "DropCast",
       iconUrl: APP_ICON_URL,
       homeUrl: APP_URL,
       imageUrl: APP_OG_IMAGE_URL,

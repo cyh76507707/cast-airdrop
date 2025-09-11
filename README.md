@@ -1,4 +1,4 @@
-# Cast Airdrop Mini App
+# DropCast Mini App
 
 Create airdrops for users who engage with your Farcaster posts using Mint Club SDK and Neynar API.
 
@@ -32,7 +32,7 @@ Create airdrops for users who engage with your Farcaster posts using Mint Club S
 1. Clone the repository:
 ```bash
 git clone <your-repo-url>
-cd cast-airdrop
+cd dropcast
 ```
 
 2. Install dependencies:

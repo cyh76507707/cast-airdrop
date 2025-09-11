@@ -352,7 +352,7 @@ export default function CastAirdropPage() {
 
   // Auto-generate title function
   const generateAirdropTitle = () => {
-    if (!castInfo) return 'Cast Airdrop';
+    if (!castInfo) return 'DropCast';
     
     const authorName = castInfo.author.displayName || castInfo.author.username;
     const castHash = castInfo.hash.substring(0, 10); // Use only first 10 characters of hash
@@ -360,7 +360,7 @@ export default function CastAirdropPage() {
     // Capitalize first letter of username
     const capitalizedName = authorName.charAt(0).toUpperCase() + authorName.slice(1);
     
-    return `${capitalizedName}'s Cast Airdrop (${castHash})`;
+    return `${capitalizedName}'s DropCast (${castHash})`;
   };
 
   const handleCreateAirdrop = async () => {
@@ -611,15 +611,15 @@ export default function CastAirdropPage() {
         </CardFooter>
       </Card>
 
-      {/* What is Cast Airdrop? Info Box */}
+      {/* What is DropCast? Info Box */}
       <Card className="w-full bg-blue-50 border-blue-200">
         <CardHeader>
-          <CardTitle className="text-blue-900">What is Cast Airdrop?</CardTitle>
+          <CardTitle className="text-blue-900">What is DropCast?</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
           <div className="mt-2">
             <p className="text-sm text-blue-800">
-              Cast Airdrop allows you to reward Farcaster users who engage with your posts through likes, recasts, quotes, and comments.
+              DropCast allows you to reward Farcaster users who engage with your posts through likes, recasts, quotes, and comments.
             </p>
           </div>
           <div className="p-2 bg-blue-100 rounded-lg">
@@ -629,7 +629,7 @@ export default function CastAirdropPage() {
           </div>
           <div className="p-2 bg-blue-100 rounded-lg">
             <p className="text-xs text-blue-700">
-              <strong>🔗 Powered by:</strong> Cast Airdrop is using{' '}
+              <strong>🔗 Powered by:</strong> DropCast is using{' '}
               <a 
                 href="https://mint.club/airdrops" 
                 target="_blank" 
