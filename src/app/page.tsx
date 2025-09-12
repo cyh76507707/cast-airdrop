@@ -96,7 +96,7 @@ export default function CastAirdropPage() {
     quotes: true,
     comments: true,
   });
-  const [excludedUsers, setExcludedUsers] = useState<Set<string>>(new Set());
+  const [selectedUsers, setSelectedUsers] = useState<Set<string>>(new Set());
 
   // Check if user can proceed to review based on wallet connection and balance
   const canProceedToReview = (): boolean => {
@@ -341,7 +341,7 @@ export default function CastAirdropPage() {
         quotes: true,
         comments: true,
       });
-      setExcludedUsers(new Set());
+      setSelectedUsers(new Set());
       
       // Mark step 2 as completed
       setCompletedSteps(prev => new Set([...prev, 'user-analysis']));
@@ -382,40 +382,66 @@ export default function CastAirdropPage() {
 
 
   // Airdrop Whitelist related functions
-  const getFinalUserList = () => {
-    const finalUsers: CastUser[] = [];
+  const getAllEligibleUsers = () => {
+    const allUsers: CastUser[] = [];
     
     if (selectedActions.likes) {
-      finalUsers.push(...engagement!.likes);
+      allUsers.push(...engagement!.likes);
     }
     if (selectedActions.recasts) {
-      finalUsers.push(...engagement!.recasts);
+      allUsers.push(...engagement!.recasts);
     }
     if (selectedActions.quotes) {
-      finalUsers.push(...engagement!.quotes);
+      allUsers.push(...engagement!.quotes);
     }
     if (selectedActions.comments) {
-      finalUsers.push(...engagement!.comments);
+      allUsers.push(...engagement!.comments);
     }
     
-          // Remove duplicates and filter excluded users
-    const uniqueUsers = finalUsers.filter((user, index, self) => 
-      index === self.findIndex(u => u.fid === user.fid) && 
-      !excludedUsers.has(user.fid.toString())
+    // Remove duplicates
+    const uniqueUsers = allUsers.filter((user, index, self) => 
+      index === self.findIndex(u => u.fid === user.fid)
     );
     
     return uniqueUsers;
   };
 
-  const toggleUserExclusion = (fid: number) => {
-    const newExcludedUsers = new Set(excludedUsers);
-    if (newExcludedUsers.has(fid.toString())) {
-      newExcludedUsers.delete(fid.toString());
-    } else {
-      newExcludedUsers.add(fid.toString());
+  const getFinalUserList = () => {
+    const allEligibleUsers = getAllEligibleUsers();
+    
+    // If no users are manually selected, return all eligible users
+    if (selectedUsers.size === 0) {
+      return allEligibleUsers;
     }
-    setExcludedUsers(newExcludedUsers);
+    
+    // Return only manually selected users
+    return allEligibleUsers.filter(user => selectedUsers.has(user.fid.toString()));
   };
+
+  const toggleUserSelection = (fid: number) => {
+    const newSelectedUsers = new Set(selectedUsers);
+    if (newSelectedUsers.has(fid.toString())) {
+      newSelectedUsers.delete(fid.toString());
+    } else {
+      newSelectedUsers.add(fid.toString());
+    }
+    setSelectedUsers(newSelectedUsers);
+  };
+
+  // Initialize selected users when action selection changes
+  useEffect(() => {
+    const allEligibleUsers = getAllEligibleUsers();
+    const allEligibleUserIds = new Set(allEligibleUsers.map(user => user.fid.toString()));
+    
+    // If no users are currently selected, select all eligible users
+    if (selectedUsers.size === 0) {
+      setSelectedUsers(allEligibleUserIds);
+    } else {
+      // Remove users who are no longer eligible
+      const newSelectedUsers = new Set([...selectedUsers].filter(id => allEligibleUserIds.has(id)));
+      setSelectedUsers(newSelectedUsers);
+    }
+  }, [selectedActions, engagement]);
 
   const openUserProfile = (username: string) => {
     window.open(`https://warpcast.com/${username}`, '_blank');
@@ -904,17 +930,19 @@ export default function CastAirdropPage() {
                 Final User List ({getFinalUserList().length} users)
               </h4>
               <div className="max-h-48 overflow-y-auto border border-gray-200 rounded-lg p-2 space-y-1">
-                {getFinalUserList().length === 0 ? (
+                {getAllEligibleUsers().length === 0 ? (
                   <p className="text-xs text-gray-500 text-center py-4">
-                    No users selected. Please check at least one action type above.
+                    No users found. Please check at least one action type above.
                   </p>
                 ) : (
-                  getFinalUserList().map((user) => (
-                    <div key={user.fid} className="flex items-center space-x-2 p-2 hover:bg-gray-50 rounded-lg">
+                  getAllEligibleUsers().map((user) => (
+                    <div key={user.fid} className={`flex items-center space-x-2 p-2 hover:bg-gray-50 rounded-lg ${
+                      !selectedUsers.has(user.fid.toString()) ? 'opacity-50' : ''
+                    }`}>
                       <input
                         type="checkbox"
-                        checked={!excludedUsers.has(user.fid.toString())}
-                        onChange={() => toggleUserExclusion(user.fid)}
+                        checked={selectedUsers.has(user.fid.toString())}
+                        onChange={() => toggleUserSelection(user.fid)}
                         className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 w-4 h-4"
                       />
                       <img
