@@ -5,7 +5,7 @@ import { Input } from "../components/ui/input";
 // import { signIn, signOut, getCsrfToken } from "next-auth/react";
 import sdk, {
   SignIn as SignInCore,
-} from "@farcaster/frame-sdk";
+} from "@farcaster/miniapp-sdk";
 import {
   useAccount,
   useSendTransaction,
@@ -18,7 +18,7 @@ import {
   useChainId,
 } from "wagmi";
 
-import { config } from "~/components/providers/WagmiProvider";
+import { config } from "~/lib/rainbowkit";
 import { Button } from "~/components/ui/Button";
 import { truncateAddress } from "~/lib/truncateAddress";
 import { base, degen, mainnet, optimism, unichain } from "wagmi/chains";

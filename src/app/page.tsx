@@ -1301,7 +1301,7 @@ export default function CastAirdropPage() {
           <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
             <p className="text-sm text-yellow-800 mb-2">⚠️ Airdrop ID Retrieval Failed</p>
             <p className="text-sm text-yellow-700 mb-3">
-              Your airdrop was successfully created, but we couldn't retrieve the airdrop ID due to network rate limiting.
+              Your airdrop was successfully created, but we couldn&apos;t retrieve the airdrop ID due to network rate limiting.
             </p>
             <p className="text-sm text-yellow-700 mb-3">
               Please visit the Mint Club creator dashboard to find your airdrop:

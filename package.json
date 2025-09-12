@@ -23,6 +23,7 @@
   },
   "dependencies": {
     "@farcaster/auth-client": ">=0.3.0 <1.0.0",
+    "@farcaster/miniapp-node": "^0.1.9",
     "@farcaster/miniapp-sdk": "^0.1.9",
     "@filebase/client": "^0.0.5",
     "@neynar/nodejs-sdk": "^3.34.0",

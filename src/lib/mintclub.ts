@@ -1321,7 +1321,7 @@ export async function getTokenLogo(
   tokenAddress: string,
   chainId: number = 8453 // Base network
 ): Promise<string | null> {
-  // Step 1: Try Mint.club API first
+  // Step 1: Try Mint.club API first (기존 로직 유지)
   try {
     const mintClubUrl = `https://mint.club/api/tokens/logo?chainId=${chainId}&address=${tokenAddress}`;
     const response = await fetch(mintClubUrl);
@@ -1335,17 +1335,19 @@ export async function getTokenLogo(
     console.log(`Mint.club API failed for token ${tokenAddress}:`, error);
   }
 
-  // Step 2: Fallback to Hunt.town API
+  // Step 2: Fallback to Hunt.town API via our proxy (CORS 문제 해결)
   try {
-    const fallbackUrl = `https://fc.hunt.town/tokens/logo/${chainId}/${tokenAddress}/image`;
-    const response = await fetch(fallbackUrl);
+    const huntTownUrl = `https://fc.hunt.town/tokens/logo/${chainId}/${tokenAddress}/image`;
+    // 우리의 API 라우트를 통해 프록시
+    const proxyUrl = `/api/token-logo?chainId=${chainId}&address=${tokenAddress}&source=hunt`;
+    const response = await fetch(proxyUrl);
     
     if (response.ok) {
-      console.log(`Found logo from Hunt.town for token ${tokenAddress}`);
-      return fallbackUrl;
+      console.log(`Found logo from Hunt.town (via proxy) for token ${tokenAddress}`);
+      return proxyUrl;
     }
   } catch (error) {
-    console.log(`Hunt.town API failed for token ${tokenAddress}:`, error);
+    console.log(`Hunt.town API (via proxy) failed for token ${tokenAddress}:`, error);
   }
 
   console.log(`No logo found for token ${tokenAddress} from any source`);
