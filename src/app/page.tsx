@@ -96,7 +96,7 @@ export default function CastAirdropPage() {
     quotes: true,
     comments: true,
   });
-  const [selectedUsers, setSelectedUsers] = useState<Set<string>>(new Set());
+  const [excludedUsers, setExcludedUsers] = useState<Set<string>>(new Set());
 
   // Check if user can proceed to review based on wallet connection and balance
   const canProceedToReview = (): boolean => {
@@ -341,7 +341,7 @@ export default function CastAirdropPage() {
         quotes: true,
         comments: true,
       });
-      setSelectedUsers(new Set());
+      setExcludedUsers(new Set());
       
       // Mark step 2 as completed
       setCompletedSteps(prev => new Set([...prev, 'user-analysis']));
@@ -411,41 +411,19 @@ export default function CastAirdropPage() {
   const getFinalUserList = () => {
     const allEligibleUsers = getAllEligibleUsers();
     
-    // If no users are manually selected, return all eligible users
-    if (selectedUsers.size === 0) {
-      return allEligibleUsers;
-    }
-    
-    // Return only manually selected users
-    return allEligibleUsers.filter(user => selectedUsers.has(user.fid.toString()));
+    // Return only users that are NOT excluded (i.e., checked users)
+    return allEligibleUsers.filter(user => !excludedUsers.has(user.fid.toString()));
   };
 
-  const toggleUserSelection = (fid: number) => {
-    const newSelectedUsers = new Set(selectedUsers);
-    if (newSelectedUsers.has(fid.toString())) {
-      newSelectedUsers.delete(fid.toString());
+  const toggleUserExclusion = (fid: number) => {
+    const newExcludedUsers = new Set(excludedUsers);
+    if (newExcludedUsers.has(fid.toString())) {
+      newExcludedUsers.delete(fid.toString());
     } else {
-      newSelectedUsers.add(fid.toString());
+      newExcludedUsers.add(fid.toString());
     }
-    setSelectedUsers(newSelectedUsers);
+    setExcludedUsers(newExcludedUsers);
   };
-
-  // Initialize selected users when action selection changes
-  useEffect(() => {
-    if (!engagement) return; // Don't run if engagement is not loaded yet
-    
-    const allEligibleUsers = getAllEligibleUsers();
-    const allEligibleUserIds = new Set(allEligibleUsers.map(user => user.fid.toString()));
-    
-    // If no users are currently selected, select all eligible users
-    if (selectedUsers.size === 0) {
-      setSelectedUsers(allEligibleUserIds);
-    } else {
-      // Remove users who are no longer eligible
-      const newSelectedUsers = new Set([...selectedUsers].filter(id => allEligibleUserIds.has(id)));
-      setSelectedUsers(newSelectedUsers);
-    }
-  }, [selectedActions, engagement]);
 
   const openUserProfile = (username: string) => {
     window.open(`https://warpcast.com/${username}`, '_blank');
@@ -465,7 +443,7 @@ export default function CastAirdropPage() {
   };
 
   const handleCreateAirdrop = async () => {
-    if (!users.length) {
+    if (!getFinalUserList().length) {
       setError('No eligible users found');
       return;
     }
@@ -941,12 +919,12 @@ export default function CastAirdropPage() {
                 ) : (
                   getAllEligibleUsers().map((user) => (
                     <div key={user.fid} className={`flex items-center space-x-2 p-2 hover:bg-gray-50 rounded-lg ${
-                      !selectedUsers.has(user.fid.toString()) ? 'opacity-50' : ''
+                      excludedUsers.has(user.fid.toString()) ? 'opacity-50' : ''
                     }`}>
                       <input
                         type="checkbox"
-                        checked={selectedUsers.has(user.fid.toString())}
-                        onChange={() => toggleUserSelection(user.fid)}
+                        checked={!excludedUsers.has(user.fid.toString())}
+                        onChange={() => toggleUserExclusion(user.fid)}
                         className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 w-4 h-4"
                       />
                       <img
@@ -1085,7 +1063,7 @@ export default function CastAirdropPage() {
                 tokenAddress={airdropForm.tokenAddress}
                 walletAddress={address || ''}
                 totalAmount={airdropForm.totalAmount}
-                userCount={users.length}
+                userCount={getFinalUserList().length}
               />
             </div>
           )}
@@ -1096,7 +1074,7 @@ export default function CastAirdropPage() {
             placeholder="1000"
             value={airdropForm.totalAmount}
             onChange={(e) => setAirdropForm({ ...airdropForm, totalAmount: e.target.value })}
-            helperText={`Each user will receive ${airdropForm.totalAmount && users.length ? (parseFloat(airdropForm.totalAmount) / users.length).toFixed(2) : '0'} tokens`}
+            helperText={`Each user will receive ${airdropForm.totalAmount && getFinalUserList().length ? (parseFloat(airdropForm.totalAmount) / getFinalUserList().length).toFixed(2) : '0'} tokens`}
           />
 
           <Input
@@ -1181,13 +1159,13 @@ export default function CastAirdropPage() {
           </div>
           <div className="flex justify-between items-start">
             <span className="text-sm font-medium text-green-600">Users:</span>
-            <span className="text-sm text-gray-700">{users.length}</span>
+            <span className="text-sm text-gray-700">{getFinalUserList().length}</span>
           </div>
           <div className="flex justify-between items-start">
             <span className="text-sm font-medium text-green-600">Per User:</span>
             <span className="text-sm text-gray-700">
-              {airdropForm.totalAmount && users.length 
-                ? (parseFloat(airdropForm.totalAmount) / users.length).toFixed(2) 
+              {airdropForm.totalAmount && getFinalUserList().length 
+                ? (parseFloat(airdropForm.totalAmount) / getFinalUserList().length).toFixed(2) 
                 : '0'} tokens
             </span>
           </div>
