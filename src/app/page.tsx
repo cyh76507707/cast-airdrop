@@ -1235,14 +1235,24 @@ export default function CastAirdropPage() {
             )}
             
             {approvalHash && (
-              <div className="text-xs text-gray-600 break-all mb-1">
-                Approval TX: {approvalHash}
+              <div className="mt-3 p-3 bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200/50 rounded-2xl shadow-sm">
+                <div className="flex items-center space-x-2 mb-1">
+                  <span className="text-green-600 font-semibold text-xs">✅ Approval TX:</span>
+                </div>
+                <div className="text-xs text-gray-700 break-all font-mono bg-white/50 p-2 rounded-lg">
+                  {approvalHash}
+                </div>
               </div>
             )}
             
             {transactionHash && (
-              <div className="text-xs text-gray-600 break-all">
-                Airdrop TX: {transactionHash}
+              <div className="mt-3 p-3 bg-gradient-to-r from-blue-50 to-cyan-50 border border-blue-200/50 rounded-2xl shadow-sm">
+                <div className="flex items-center space-x-2 mb-1">
+                  <span className="text-blue-600 font-semibold text-xs">🚀 Airdrop TX:</span>
+                </div>
+                <div className="text-xs text-gray-700 break-all font-mono bg-white/50 p-2 rounded-lg">
+                  {transactionHash}
+                </div>
               </div>
             )}
           </div>
@@ -1329,25 +1339,58 @@ export default function CastAirdropPage() {
       </CardContent>
       <CardFooter className="flex space-x-2">
         <Button 
-          variant="outline"
-          onClick={() => setCurrentStep('url-input')}
-          className="flex-1"
+          onClick={copyToClipboard}
+          className="flex-1 bg-blue-500 hover:bg-blue-600 text-white focus:ring-blue-500 shadow-lg shadow-blue-200/50 hover:shadow-xl hover:shadow-blue-300/50 transform hover:-translate-y-0.5"
         >
-          Create Another
+          Copy Link
         </Button>
         {transactionStatus === 'id-fetch-failed' ? (
           <Button 
             onClick={() => window.open('https://mint.club/dashboard/airdrops', '_blank')}
-            className="flex-1"
+            className="flex-1 btn-colorful"
           >
             Go to Dashboard
           </Button>
         ) : (
           <Button 
-            onClick={copyToClipboard}
-            className="flex-1"
+            onClick={() => {
+              const userCount = getFinalUserList().length;
+              const perUserAmount = airdropForm.totalAmount && userCount ? (parseFloat(airdropForm.totalAmount) / userCount).toFixed(1) : '0';
+              
+              // Get token symbol - try multiple approaches
+              let tokenSymbol = 'TOKENS';
+              
+              // First try to find in predefined tokens
+              const tokenInfo = PREDEFINED_TOKENS.find(token => 
+                token.address.toLowerCase() === airdropForm.tokenAddress.toLowerCase()
+              );
+              
+              if (tokenInfo) {
+                tokenSymbol = tokenInfo.symbol;
+              } else {
+                // If not found, try to get from the summary display logic
+                // This matches the same logic used in the summary screen
+                const summaryTokenInfo = PREDEFINED_TOKENS.find(token => token.address === airdropForm.tokenAddress);
+                if (summaryTokenInfo) {
+                  tokenSymbol = summaryTokenInfo.symbol;
+                }
+              }
+              
+              console.log('Share button debug:', {
+                tokenAddress: airdropForm.tokenAddress,
+                tokenInfo: tokenInfo,
+                tokenSymbol: tokenSymbol
+              });
+              
+              const shareText = `🎉 Just airdropped ${tokenSymbol} to the amazing people who reacted to my cast!\n\n${userCount} casters will earn ${perUserAmount} ${tokenSymbol} each via ${airdropLink}\n\n🚀 Created with dropcast.xyz - the easiest way to reward your Farcaster community!`;
+              
+              // Create Farcaster share URL
+              const shareUrl = `https://warpcast.com/~/compose?text=${encodeURIComponent(shareText)}`;
+              window.open(shareUrl, '_blank');
+            }}
+            className="flex-1 btn-colorful"
           >
-            Copy Link
+            Share
           </Button>
         )}
       </CardFooter>

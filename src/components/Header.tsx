@@ -25,7 +25,7 @@ export function Header() {
               <h1 className="text-xl font-bold font-display bg-gradient-to-r from-pink-600 via-orange-500 to-yellow-500 bg-clip-text text-transparent">
                 DropCast
               </h1>
-              <p className="text-xs text-gray-600 font-medium">Reward Your Community</p>
+              <p className="text-xs text-gray-600 font-medium">Community Rewards</p>
             </div>
           </div>
           
