@@ -20,6 +20,8 @@
  * This design system is intentionally minimal to prevent bloat and maintain consistency.
  */
 
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Poppins:wght@300;400;500;600;700;800&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -38,8 +40,9 @@
 
 body {
   color: var(--foreground);
-  background: var(--background);
-  font-family: 'Inter', Helvetica, Arial, sans-serif;
+  background: linear-gradient(135deg, #FFE4E1 0%, #FFF0F5 100%);
+  font-family: 'Inter', system-ui, sans-serif;
+  min-height: 100vh;
 }
 
 * {
@@ -73,28 +76,37 @@ body {
 
   /* Global card styles */
   .card {
-    @apply bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm;
+    @apply bg-white/90 backdrop-blur-sm rounded-2xl border border-pink-200/50 shadow-lg shadow-pink-100/50;
   }
   
   .card-primary {
-    @apply bg-primary/10 border-primary/20;
+    @apply bg-gradient-to-br from-pink-50 to-orange-50 border-pink-300/50 shadow-lg shadow-pink-200/50;
+  }
+  
+  .card-colorful {
+    @apply bg-gradient-to-br from-pink-100 via-orange-50 to-yellow-50 border-2 border-transparent shadow-xl shadow-pink-200/30;
+    background-clip: padding-box;
   }
 
   /* Global button styles - optimized for touch interactions */
   .btn {
-    @apply inline-flex items-center justify-center rounded-lg px-4 py-3 text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none min-h-[44px]; /* Increased padding and min-height for better touch targets */
+    @apply inline-flex items-center justify-center rounded-2xl px-6 py-4 text-sm font-semibold font-display transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none min-h-[48px] shadow-lg; /* Increased padding and min-height for better touch targets */
   }
   
   .btn-primary {
-    @apply bg-primary text-white hover:bg-primary-dark focus:ring-primary;
+    @apply bg-gradient-to-r from-pink-500 to-orange-500 text-white hover:from-pink-600 hover:to-orange-600 focus:ring-pink-500 shadow-lg shadow-pink-200/50 hover:shadow-xl hover:shadow-pink-300/50 transform hover:-translate-y-0.5;
   }
   
   .btn-secondary {
-    @apply bg-secondary text-gray-900 hover:bg-gray-200 focus:ring-gray-500 dark:bg-secondary-dark dark:text-gray-100 dark:hover:bg-gray-600;
+    @apply bg-gradient-to-r from-pink-100 to-orange-100 text-gray-800 hover:from-pink-200 hover:to-orange-200 focus:ring-pink-300 shadow-md shadow-pink-100/50;
   }
   
   .btn-outline {
-    @apply border border-gray-300 bg-transparent hover:bg-gray-50 focus:ring-gray-500 dark:border-gray-600 dark:hover:bg-gray-800;
+    @apply border-2 border-pink-300 bg-transparent hover:bg-pink-50 focus:ring-pink-300 text-pink-600 hover:text-pink-700 shadow-md shadow-pink-100/30;
+  }
+  
+  .btn-colorful {
+    @apply bg-gradient-to-r from-pink-500 via-orange-400 to-yellow-400 text-white hover:from-pink-600 hover:via-orange-500 hover:to-yellow-500 focus:ring-pink-400 shadow-lg shadow-orange-200/50 hover:shadow-xl hover:shadow-orange-300/50 transform hover:-translate-y-0.5;
   }
 
   /* Global input styles */

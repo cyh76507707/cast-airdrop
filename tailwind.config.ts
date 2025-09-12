@@ -21,15 +21,37 @@ export default {
   ],
   theme: {
   	extend: {
+  		fontFamily: {
+  			'sans': ['Inter', 'system-ui', 'sans-serif'],
+  			'display': ['Poppins', 'Inter', 'system-ui', 'sans-serif'],
+  			'body': ['Inter', 'system-ui', 'sans-serif'],
+  		},
   		colors: {
-  			// Main theme color - change this to update the entire app's color scheme
-  			primary: "#8b5cf6", // Main brand color
-  			"primary-light": "#a78bfa", // For hover states
-  			"primary-dark": "#7c3aed", // For active states
+  			// Done Drinks inspired colorful theme
+  			primary: "#FF6B9D", // Vibrant pink
+  			"primary-light": "#FFB3D1", // Light pink
+  			"primary-dark": "#E91E63", // Deep pink
   			
-  			// Secondary colors for backgrounds and text
-  			secondary: "#f8fafc", // Light backgrounds
-  			"secondary-dark": "#334155", // Dark backgrounds
+  			// Secondary colorful palette
+  			secondary: "#FFE4E1", // Light pink background
+  			"secondary-dark": "#1a1a1a", // Dark background
+  			
+  			// Accent colors inspired by Done Drinks
+  			accent: {
+  				orange: "#FF8A65",
+  				yellow: "#FFD54F", 
+  				green: "#81C784",
+  				blue: "#64B5F6",
+  				purple: "#BA68C8",
+  				coral: "#FFAB91",
+  			},
+  			
+  			// Background gradients
+  			gradient: {
+  				pink: "linear-gradient(135deg, #FF6B9D 0%, #FFB3D1 100%)",
+  				colorful: "linear-gradient(135deg, #FF6B9D 0%, #FF8A65 25%, #FFD54F 50%, #81C784 75%, #64B5F6 100%)",
+  				warm: "linear-gradient(135deg, #FFE4E1 0%, #FFF0F5 100%)",
+  			},
   			
   			// Legacy CSS variables for backward compatibility
   			background: 'var(--background)',

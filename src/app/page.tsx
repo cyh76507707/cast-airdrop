@@ -649,19 +649,19 @@ export default function CastAirdropPage() {
                   >
                     <div
                       className={cn(
-                        'w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium',
+                        'w-10 h-10 rounded-2xl flex items-center justify-center text-sm font-bold font-display transition-all duration-200 shadow-lg',
                         isCurrent
-                          ? 'bg-blue-600 text-white'
+                          ? 'bg-gradient-to-br from-pink-500 to-orange-500 text-white shadow-pink-200/50 transform scale-110'
                           : isCompleted
-                          ? 'bg-green-500 text-white'
-                          : 'bg-gray-200 text-gray-600'
+                          ? 'bg-gradient-to-br from-green-400 to-emerald-500 text-white shadow-green-200/50'
+                          : 'bg-gradient-to-br from-gray-200 to-gray-300 text-gray-600 shadow-gray-100/50'
                       )}
                     >
                       {index + 1}
                     </div>
                   </div>
                   {index < steps.length - 1 && (
-                    <div className="w-4 h-0.5 bg-gray-300" />
+                    <div className="w-6 h-1 bg-gradient-to-r from-gray-300 to-gray-400 rounded-full" />
                   )}
                 </React.Fragment>
               );
@@ -672,7 +672,9 @@ export default function CastAirdropPage() {
         {/* Current step title */}
         {currentStepData && (
           <div className="text-center">
-            <h2 className="text-lg font-semibold text-gray-900">{currentStepData.label}</h2>
+            <h2 className="text-xl font-bold font-display bg-gradient-to-r from-pink-600 via-orange-500 to-yellow-500 bg-clip-text text-transparent">
+              {currentStepData.label}
+            </h2>
           </div>
         )}
       </div>
@@ -710,29 +712,29 @@ export default function CastAirdropPage() {
       </Card>
 
       {/* What is DropCast? Info Box */}
-      <Card className="w-full bg-blue-50 border-blue-200">
+      <Card className="w-full card-colorful">
         <CardHeader>
-          <CardTitle className="text-blue-900">What is DropCast?</CardTitle>
+          <CardTitle className="text-gray-800 font-display font-bold">What is DropCast?</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-3">
+        <CardContent className="space-y-4">
           <div className="mt-2">
-            <p className="text-sm text-blue-800">
+            <p className="text-sm text-gray-700 font-medium">
               DropCast allows you to reward Farcaster users who engage with your posts through likes, recasts, quotes, and comments.
             </p>
           </div>
-          <div className="p-2 bg-blue-100 rounded-lg">
-            <p className="text-xs text-blue-700">
-              <strong>💡 Tip:</strong> This tool helps you build stronger communities by rewarding active participants in your Farcaster discussions.
+          <div className="p-3 bg-gradient-to-r from-pink-100 to-orange-100 rounded-2xl border border-pink-200/50">
+            <p className="text-xs text-gray-700 font-medium">
+              <strong className="text-pink-600">💡 Tip:</strong> This tool helps you build stronger communities by rewarding active participants in your Farcaster discussions.
             </p>
           </div>
-          <div className="p-2 bg-blue-100 rounded-lg">
-            <p className="text-xs text-blue-700">
-              <strong>🔗 Powered by:</strong> DropCast is using{' '}
+          <div className="p-3 bg-gradient-to-r from-orange-100 to-yellow-100 rounded-2xl border border-orange-200/50">
+            <p className="text-xs text-gray-700 font-medium">
+              <strong className="text-orange-600">🔗 Powered by:</strong> DropCast is using{' '}
               <a 
                 href="https://mint.club/airdrops" 
                 target="_blank" 
                 rel="noopener noreferrer"
-                className="text-blue-600 hover:underline font-medium"
+                className="text-pink-600 hover:text-pink-700 underline font-semibold transition-colors"
               >
                 Mint Club Airdrop
               </a>
@@ -827,28 +829,28 @@ export default function CastAirdropPage() {
         {/* Engagement Summary */}
         <Card>
           <CardHeader>
-            <CardTitle>Engagement Summary</CardTitle>
+            <CardTitle className="font-display font-bold">Engagement Summary</CardTitle>
             <CardDescription>
               Found {users.length} unique users who engaged with this post
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="space-y-2">
-              <div className="flex justify-between items-center p-2 bg-green-50 rounded-lg">
-                <span className="font-medium text-green-800 text-sm">❤️ Like</span>
-                <span className="text-green-700 text-xs text-right max-w-[60%]">{formatUserList(engagement.likes)}</span>
+            <div className="space-y-3">
+              <div className="flex justify-between items-center p-3 bg-gradient-to-r from-pink-100 to-red-100 rounded-2xl border border-pink-200/50 shadow-sm">
+                <span className="font-bold text-pink-700 text-sm">❤️ Like</span>
+                <span className="text-pink-600 text-xs text-right max-w-[60%] font-medium">{formatUserList(engagement.likes)}</span>
               </div>
-              <div className="flex justify-between items-center p-2 bg-blue-50 rounded-lg">
-                <span className="font-medium text-blue-800 text-sm">🔄 Recast</span>
-                <span className="text-blue-700 text-xs text-right max-w-[60%]">{formatUserList(engagement.recasts)}</span>
+              <div className="flex justify-between items-center p-3 bg-gradient-to-r from-orange-100 to-yellow-100 rounded-2xl border border-orange-200/50 shadow-sm">
+                <span className="font-bold text-orange-700 text-sm">🔄 Recast</span>
+                <span className="text-orange-600 text-xs text-right max-w-[60%] font-medium">{formatUserList(engagement.recasts)}</span>
               </div>
-              <div className="flex justify-between items-center p-2 bg-purple-50 rounded-lg">
-                <span className="font-medium text-purple-800 text-sm">💬 Quote</span>
-                <span className="text-purple-700 text-xs text-right max-w-[60%]">{formatUserList(engagement.quotes)}</span>
+              <div className="flex justify-between items-center p-3 bg-gradient-to-r from-purple-100 to-pink-100 rounded-2xl border border-purple-200/50 shadow-sm">
+                <span className="font-bold text-purple-700 text-sm">💬 Quote</span>
+                <span className="text-purple-600 text-xs text-right max-w-[60%] font-medium">{formatUserList(engagement.quotes)}</span>
               </div>
-              <div className="flex justify-between items-center p-2 bg-orange-50 rounded-lg">
-                <span className="font-medium text-orange-800 text-sm">💭 Comment</span>
-                <span className="text-orange-700 text-xs text-right max-w-[60%]">{formatUserList(engagement.comments)}</span>
+              <div className="flex justify-between items-center p-3 bg-gradient-to-r from-yellow-100 to-orange-100 rounded-2xl border border-yellow-200/50 shadow-sm">
+                <span className="font-bold text-yellow-700 text-sm">💭 Comment</span>
+                <span className="text-yellow-600 text-xs text-right max-w-[60%] font-medium">{formatUserList(engagement.comments)}</span>
               </div>
             </div>
           </CardContent>
@@ -947,16 +949,16 @@ export default function CastAirdropPage() {
         </Card>
 
         {/* Make Airdrop Button */}
-        <div className="flex justify-center pt-4">
+        <div className="flex justify-center pt-6">
           <Button 
             onClick={() => {
               setCompletedSteps(prev => new Set([...prev, 'airdrop-form']));
               setCurrentStep('airdrop-form');
             }} 
-            className="w-full py-3 text-sm"
+            className="w-full btn-colorful text-base font-display font-bold"
             disabled={getFinalUserList().length === 0}
           >
-            Make Airdrop for them ({getFinalUserList().length} users)
+            🎉 Make Airdrop for them ({getFinalUserList().length} users)
           </Button>
         </div>
       </div>
@@ -1370,17 +1372,17 @@ export default function CastAirdropPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gradient-to-br from-pink-50 via-orange-50 to-yellow-50">
       <Header />
       
-      <div className="py-4 px-3">
+      <div className="py-6 px-3">
         <div className="container mx-auto">
           {renderStepIndicator()}
           {renderCurrentStep()}
 
           {error && (
-            <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg">
-              <p className="text-sm text-red-800">{error}</p>
+            <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-2xl shadow-lg shadow-red-100/50">
+              <p className="text-sm text-red-800 font-medium">{error}</p>
             </div>
           )}
         </div>
