@@ -383,19 +383,21 @@ export default function CastAirdropPage() {
 
   // Airdrop Whitelist related functions
   const getAllEligibleUsers = () => {
+    if (!engagement) return []; // Return empty array if engagement is not loaded
+    
     const allUsers: CastUser[] = [];
     
     if (selectedActions.likes) {
-      allUsers.push(...engagement!.likes);
+      allUsers.push(...engagement.likes);
     }
     if (selectedActions.recasts) {
-      allUsers.push(...engagement!.recasts);
+      allUsers.push(...engagement.recasts);
     }
     if (selectedActions.quotes) {
-      allUsers.push(...engagement!.quotes);
+      allUsers.push(...engagement.quotes);
     }
     if (selectedActions.comments) {
-      allUsers.push(...engagement!.comments);
+      allUsers.push(...engagement.comments);
     }
     
     // Remove duplicates
@@ -430,6 +432,8 @@ export default function CastAirdropPage() {
 
   // Initialize selected users when action selection changes
   useEffect(() => {
+    if (!engagement) return; // Don't run if engagement is not loaded yet
+    
     const allEligibleUsers = getAllEligibleUsers();
     const allEligibleUserIds = new Set(allEligibleUsers.map(user => user.fid.toString()));
     
