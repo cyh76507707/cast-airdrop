@@ -5,6 +5,25 @@ const nextConfig: NextConfig = {
   experimental: {
     // Remove esmExternals warning
   },
+  
+  // Serve .well-known files for Farcaster manifest
+  async headers() {
+    return [
+      {
+        source: '/.well-known/farcaster.json',
+        headers: [
+          {
+            key: 'Content-Type',
+            value: 'application/json',
+          },
+          {
+            key: 'Access-Control-Allow-Origin',
+            value: '*',
+          },
+        ],
+      },
+    ];
+  },
 };
 
 export default nextConfig;

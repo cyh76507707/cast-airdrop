@@ -53,7 +53,7 @@ export const APP_ICON_URL: string = `${APP_URL}/icon.png`;
  * URL for the app's Open Graph image.
  * Used for social media sharing and previews.
  */
-export const APP_OG_IMAGE_URL: string = `${APP_URL}/api/opengraph-image`;
+export const APP_OG_IMAGE_URL: string = `${APP_URL}/og-image.png`;
 
 /**
  * URL for the app's splash screen image.
@@ -65,7 +65,7 @@ export const APP_SPLASH_URL: string = `${APP_URL}/splash.png`;
  * Background color for the splash screen.
  * Used as fallback when splash image is loading.
  */
-export const APP_SPLASH_BACKGROUND_COLOR: string = '#f7f7f7';
+export const APP_SPLASH_BACKGROUND_COLOR: string = '#FFE4E1';
 
 /**
  * Account association for the mini app.

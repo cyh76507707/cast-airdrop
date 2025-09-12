@@ -1,0 +1,38 @@
+{
+  "miniapp": {
+    "version": "1",
+    "name": "DropCast",
+    "iconUrl": "https://dropcast.xyz/icon.png",
+    "homeUrl": "https://dropcast.xyz",
+    "splashImageUrl": "https://dropcast.xyz/splash.png",
+    "splashBackgroundColor": "#FFE4E1",
+    "subtitle": "Reward Your Casters",
+    "description": "Make airdrops for users who engage with your Farcaster post. Create token rewards for your community.",
+    "screenshotUrls": [
+      "https://dropcast.xyz/screenshot1.png",
+      "https://dropcast.xyz/screenshot2.png",
+      "https://dropcast.xyz/screenshot3.png"
+    ],
+    "primaryCategory": "utility",
+    "tags": [
+      "airdrop",
+      "tokens",
+      "farcaster",
+      "rewards",
+      "community"
+    ],
+    "heroImageUrl": "https://dropcast.xyz/og-image.png",
+    "tagline": "Reward Your Casters",
+    "ogTitle": "DropCast",
+    "ogDescription": "Make airdrops for users who engage with your Farcaster post",
+    "ogImageUrl": "https://dropcast.xyz/og-image.png",
+    "requiredChains": [
+      "eip155:8453"
+    ],
+    "requiredCapabilities": [
+      "actions.signIn",
+      "wallet.getEthereumProvider",
+      "wallet.getEthereumAddress"
+    ]
+  }
+}
