@@ -183,3 +183,4 @@ MIT License - see LICENSE file for details
 - [ ] Social sharing features
 - [ ] Mobile app version
 
+# GitHub 연동 테스트
