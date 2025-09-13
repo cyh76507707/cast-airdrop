@@ -45,6 +45,22 @@ export const metadata: Metadata = {
     description: APP_DESCRIPTION,
     images: ['/og-image.png'],
   },
+  other: {
+    'fc:miniapp': JSON.stringify({
+      version: "1",
+      imageUrl: "https://dropcast.xyz/og-image.png",
+      button: {
+        title: "Create Airdrop",
+        action: {
+          type: "launch_frame",
+          name: "DropCast",
+          url: "https://dropcast.xyz",
+          splashImageUrl: "https://dropcast.xyz/splash.png",
+          splashBackgroundColor: "#FFE4E1"
+        }
+      }
+    })
+  },
 };
 
 export default async function RootLayout({

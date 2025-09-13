@@ -1,11 +1,17 @@
 {
-  "miniapp": {
+  "accountAssociation": {
+    "header": "eyJmaWQiOjgxMDYsInR5cGUiOiJjdXN0b2R5Iiwia2V5IjoiMHg4NTRFQzE4Mjg5ZGYzNDhiMmI3QUIzMDg2ODRBNkYxMWM5MTlhNUQwIn0",
+    "payload": "eyJkb21haW4iOiJkcm9wY2FzdC54eXoifQ",
+    "signature": "MHhiYzZiMmUzODM2ODFmNjM4YzE1YWQyYmIyOGYyMmZhODU2ZjI5MmJlNzQ5YmJmN2I5Njk1MzAxMGMwYjUwM2E1Njc4YzJiY2M1ZTc3MTAzNTIxNTY0ZjYxYWJjNmEwZGZlYjEzNjI1YmY2NzVlYzM0NTRhNTY4M2U3ZWE1ZGJhZTFj"
+  },
+  "frame": {
     "version": "1",
     "name": "DropCast",
     "iconUrl": "https://dropcast.xyz/icon.png",
     "homeUrl": "https://dropcast.xyz",
     "splashImageUrl": "https://dropcast.xyz/splash.png",
     "splashBackgroundColor": "#FFE4E1",
+    "accentColor": "#FF6B9D",
     "subtitle": "Reward Your Casters",
     "description": "Make airdrops for users who engage with your Farcaster post. Create token rewards for your community.",
     "screenshotUrls": [
@@ -28,11 +34,6 @@
     "ogImageUrl": "https://dropcast.xyz/og-image.png",
     "requiredChains": [
       "eip155:8453"
-    ],
-    "requiredCapabilities": [
-      "actions.signIn",
-      "wallet.getEthereumProvider",
-      "wallet.getEthereumAddress"
     ]
   }
 }

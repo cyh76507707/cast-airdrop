@@ -46,6 +46,14 @@ export default function CastAirdropPage() {
     if (!isSDKLoaded || appReady) return;
     (async () => {
       await sdk.actions.ready();
+      
+      // Automatically show add mini app popup (following clap-web pattern)
+      // NOTE: we shouldn't await this because it stops the context from being read
+      // we also catch it separately because it throws an error when user rejects the prompt
+      sdk.actions.addMiniApp().catch(() => {
+        // Silently ignore mini app addition errors (e.g., user rejection)
+      });
+      
       setAppReady(true);
       
       // App is ready for use
