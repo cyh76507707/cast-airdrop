@@ -1649,7 +1649,7 @@ export default function CastAirdropPage() {
               if (summaryTokenInfo) tokenSymbol = summaryTokenInfo.symbol;
             }
 
-            const shareText = `🎉 I just created an airdrop for everyone who engaged with my cast!\n\n${userCount} casters will each receive ${perUserAmount} ${tokenSymbol}.\n\nClaim here: ${airdropLink}\n\nBuilt with DropCast to reward Farcaster communities 🚀`;
+            const shareText = `🎉 Just airdropped ${tokenSymbol} to the amazing people who reacted to my cast!\n\n${userCount} casters will earn ${perUserAmount} ${tokenSymbol} each via ${airdropLink}\n\n🚀 Created with dropcast.xyz - the easiest way to reward your Farcaster community!`;
 
             return (
               <ShareButton
