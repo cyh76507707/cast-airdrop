@@ -634,7 +634,7 @@ export default function CastAirdropPage() {
     const currentStepData = steps.find(step => step.key === currentStep);
 
     return (
-      <div className="mb-6">
+      <div className="mb-6 max-w-2xl mx-auto">
         {/* Step numbers */}
         <div className="flex items-center justify-center mb-4">
           <div className="flex items-center space-x-2">
