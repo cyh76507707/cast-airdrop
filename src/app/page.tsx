@@ -24,6 +24,8 @@ import {
 } from '@/lib/mintclub';
 import { sdk } from '@farcaster/miniapp-sdk';
 import { Header } from '@/components/Header';
+import { ShareButton } from '@/components/ui/Share';
+import { APP_URL } from '@/lib/constants';
 import { useAccount } from 'wagmi';
 
 type Step = 'url-input' | 'user-analysis' | 'airdrop-form' | 'summary' | 'completion';
@@ -1364,46 +1366,34 @@ export default function CastAirdropPage() {
             Go to Dashboard
           </Button>
         ) : (
-          <Button 
-            onClick={() => {
-              const userCount = getFinalUserList().length;
-              const perUserAmount = airdropForm.totalAmount && userCount ? (parseFloat(airdropForm.totalAmount) / userCount).toFixed(1) : '0';
-              
-              // Get token symbol - try multiple approaches
-              let tokenSymbol = 'TOKENS';
-              
-              // First try to find in predefined tokens
-              const tokenInfo = PREDEFINED_TOKENS.find(token => 
-                token.address.toLowerCase() === airdropForm.tokenAddress.toLowerCase()
-              );
-              
-              if (tokenInfo) {
-                tokenSymbol = tokenInfo.symbol;
-              } else {
-                // If not found, try to get from the summary display logic
-                // This matches the same logic used in the summary screen
-                const summaryTokenInfo = PREDEFINED_TOKENS.find(token => token.address === airdropForm.tokenAddress);
-                if (summaryTokenInfo) {
-                  tokenSymbol = summaryTokenInfo.symbol;
-                }
-              }
-              
-              console.log('Share button debug:', {
-                tokenAddress: airdropForm.tokenAddress,
-                tokenInfo: tokenInfo,
-                tokenSymbol: tokenSymbol
-              });
-              
-              const shareText = `🎉 Just airdropped ${tokenSymbol} to the amazing people who reacted to my cast!\n\n${userCount} casters will earn ${perUserAmount} ${tokenSymbol} each via ${airdropLink}\n\n🚀 Created with dropcast.xyz - the easiest way to reward your Farcaster community!`;
-              
-              // Create Farcaster share URL
-              const shareUrl = `https://warpcast.com/~/compose?text=${encodeURIComponent(shareText)}`;
-              window.open(shareUrl, '_blank');
-            }}
-            className="flex-1 btn-colorful"
-          >
-            Share
-          </Button>
+          (() => {
+            const userCount = getFinalUserList().length;
+            const perUserAmount = airdropForm.totalAmount && userCount ? (parseFloat(airdropForm.totalAmount) / userCount).toFixed(1) : '0';
+            
+            let tokenSymbol = 'TOKENS';
+            const tokenInfo = PREDEFINED_TOKENS.find(token => 
+              token.address.toLowerCase() === airdropForm.tokenAddress.toLowerCase()
+            );
+            if (tokenInfo) {
+              tokenSymbol = tokenInfo.symbol;
+            } else {
+              const summaryTokenInfo = PREDEFINED_TOKENS.find(token => token.address === airdropForm.tokenAddress);
+              if (summaryTokenInfo) tokenSymbol = summaryTokenInfo.symbol;
+            }
+
+            const shareText = `🎉 I just created an airdrop for everyone who engaged with my cast!\n\n${userCount} casters will each receive ${perUserAmount} ${tokenSymbol}.\n\nClaim here: ${airdropLink}\n\nBuilt with DropCast to reward Farcaster communities 🚀`;
+
+            return (
+              <ShareButton
+                buttonText="Share"
+                className="flex-1 btn-colorful"
+                cast={{
+                  text: shareText,
+                  embeds: [airdropLink!, APP_URL] as [string, string],
+                }}
+              />
+            );
+          })()
         )}
       </CardFooter>
     </Card>
