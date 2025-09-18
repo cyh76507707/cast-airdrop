@@ -34,26 +34,30 @@ export function ShareButton({
     { fid: number; username: string }[] | null
   >(null);
   const [isLoadingBestFriends, setIsLoadingBestFriends] = useState(false);
-  const [context, setContext] = useState<Context.MiniAppContext | null>(null);
-
-  // const context = sdk.context;
-  // const actions = sdk.actions;
+  const [resolvedContext, setResolvedContext] = useState<any>(null);
   useEffect(() => {
-    const context = sdk.context;
-    setContext(context);
-  }, [context]);
+    let mounted = true;
+    sdk.context
+      .then((ctx) => {
+        if (mounted) setResolvedContext(ctx);
+      })
+      .catch(() => {});
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   // Fetch best friends if needed
   useEffect(() => {
-    if (cast.bestFriends && context?.user?.fid) {
+    if (cast.bestFriends && resolvedContext?.user?.fid) {
       setIsLoadingBestFriends(true);
-      fetch(`/api/best-friends?fid=${context.user.fid}`)
+      fetch(`/api/best-friends?fid=${resolvedContext.user.fid}`)
         .then((res) => res.json())
         .then((data) => setBestFriends(data.bestFriends))
         .catch((err) => console.error("Failed to fetch best friends:", err))
         .finally(() => setIsLoadingBestFriends(false));
     }
-  }, [cast.bestFriends, context?.user?.fid]);
+  }, [cast.bestFriends, resolvedContext?.user?.fid]);
 
   const handleShare = useCallback(async () => {
     try {
@@ -92,7 +96,7 @@ export function ShareButton({
             // Add UTM parameters
             url.searchParams.set(
               "utm_source",
-              `share-cast-${context?.user?.fid || "unknown"}`
+              `share-cast-${resolvedContext?.user?.fid || "unknown"}`
             );
 
             // If custom image generator is provided, use it
@@ -120,7 +124,7 @@ export function ShareButton({
     } finally {
       setIsProcessing(false);
     }
-  }, [cast, bestFriends, context?.user?.fid, sdk.actions]);
+  }, [cast, bestFriends, resolvedContext?.user?.fid]);
 
   return (
     <Button
