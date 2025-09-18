@@ -8,7 +8,8 @@ import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/Select';
 import { LoadingCard } from '@/components/ui/LoadingSpinner';
 import { TokenLogo } from '@/components/ui/TokenLogo';
-import { getAllCastUsers, getCastByHashOrUrl, transformCastToInfo, CastUser, CastEngagement, CastInfo } from '@/lib/neynar';
+import { transformCastToInfo, CastUser, CastEngagement, CastInfo } from '@/lib/neynar';
+import { prefetchNeynarFromUrl } from '@/hooks/neynar';
 import { 
   PREDEFINED_TOKENS, 
   uploadWalletsToIPFS, 
@@ -332,15 +333,14 @@ export default function CastAirdropPage() {
     try {
       console.log('🔍 Starting analysis for URL:', castUrl);
       
-      // Get Cast info and user data at once
-      const engagementData = await getAllCastUsers(castUrl);
-      const castData = await getCastByHashOrUrl(castUrl, 'url');
+      // Prefetch with SWR to seed cache and fetch data once
+      const { castData, engagementData } = await prefetchNeynarFromUrl(castUrl, 'url');
       const castInfoData = transformCastToInfo(castData);
       
-      setEngagement(engagementData);
+      if (engagementData) setEngagement(engagementData);
       setCastInfo(castInfoData);
-      setUsers(engagementData.totalUsers);
-      setCastHash(castUrl);
+      if (engagementData) setUsers(engagementData.totalUsers);
+      setCastHash(castData?.cast?.hash || castUrl);
       
       // Reset Airdrop Whitelist state for new data
       setSelectedActions({
@@ -354,13 +354,17 @@ export default function CastAirdropPage() {
       // Mark step 2 as completed
       setCompletedSteps(prev => new Set([...prev, 'user-analysis']));
       
-      console.log('✅ Analysis completed:', {
-        totalUsers: engagementData.totalUsers.length,
-        likes: engagementData.likes.length,
-        recasts: engagementData.recasts.length,
-        quotes: engagementData.quotes.length,
-        comments: engagementData.comments.length
-      });
+      if (engagementData) {
+        console.log('✅ Analysis completed:', {
+          totalUsers: engagementData.totalUsers.length,
+          likes: engagementData.likes.length,
+          recasts: engagementData.recasts.length,
+          quotes: engagementData.quotes.length,
+          comments: engagementData.comments.length
+        });
+      } else {
+        console.log('✅ Analysis completed: engagement data unavailable at prefetch time');
+      }
     } catch (err) {
       console.error('❌ Error in handleUrlSubmit:', err);
       setError('Failed to analyze the post. Please try again.');

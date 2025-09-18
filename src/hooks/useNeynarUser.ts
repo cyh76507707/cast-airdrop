@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import useSWR from "swr";
 
 export interface NeynarUser {
   fid: number;
@@ -6,33 +6,15 @@ export interface NeynarUser {
 }
 
 export function useNeynarUser(context?: { user?: { fid?: number } }) {
-  const [user, setUser] = useState<NeynarUser | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!context?.user?.fid) {
-      setUser(null);
-      setError(null);
-      return;
+  const fid = context?.user?.fid;
+  const { data, error, isLoading } = useSWR<NeynarUser | null>(
+    fid ? `/api/users?fids=${fid}` : null,
+    {
+      dedupingInterval: 300000,
+      revalidateOnFocus: false,
+      keepPreviousData: true,
     }
-    setLoading(true);
-    setError(null);
-    fetch(`/api/users?fids=${context.user.fid}`)
-      .then((response) => {
-        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-        return response.json();
-      })
-      .then((data) => {
-        if (data.users?.[0]) {
-          setUser(data.users[0]);
-        } else {
-          setUser(null);
-        }
-      })
-      .catch((err) => setError(err.message))
-      .finally(() => setLoading(false));
-  }, [context?.user?.fid]);
+  );
 
-  return { user, loading, error };
+  return { user: data ?? null, loading: !!fid && isLoading, error: error ? (error as Error).message : null };
 } 
