@@ -634,10 +634,10 @@ export default function CastAirdropPage() {
     const currentStepData = steps.find(step => step.key === currentStep);
 
     return (
-      <div className="mb-6 max-w-2xl mx-auto">
+      <div className="mb-6">
         {/* Step numbers */}
-        <div className="flex items-center justify-center mb-4">
-          <div className="flex items-center space-x-2">
+        <div className="flex items-center justify-center mb-4 px-4">
+          <div className="flex items-center space-x-1 w-full max-w-md justify-between">
             {steps.map((step, index) => {
               const isCompleted = completedSteps.has(step.key as Step);
               const isCurrent = currentStep === step.key;
@@ -669,7 +669,7 @@ export default function CastAirdropPage() {
                     </div>
                   </div>
                   {index < steps.length - 1 && (
-                    <div className="w-6 h-1 bg-gradient-to-r from-gray-300 to-gray-400 rounded-full" />
+                    <div className="w-4 h-1 bg-gradient-to-r from-gray-300 to-gray-400 rounded-full" />
                   )}
                 </React.Fragment>
               );
@@ -1427,7 +1427,7 @@ export default function CastAirdropPage() {
       <Header />
       
       <div className="py-6 px-3">
-        <div className="container mx-auto">
+        <div className="container mx-auto max-w-2xl">
           {renderStepIndicator()}
           {renderCurrentStep()}
 
