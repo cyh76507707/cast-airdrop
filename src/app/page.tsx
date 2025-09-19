@@ -109,10 +109,24 @@ export default function CastAirdropPage() {
     if (!isSDKLoaded || !appReady) return;
     (async () => {
       try {
+        console.log("[QuickAuth] requesting token...");
         const { token } = await sdk.quickAuth.getToken();
         if (!token) return;
-        const payload = JSON.parse(atob(token.split(".")[1] || ""));
-        const fid = typeof payload?.sub === "number" ? payload.sub : null;
+        // Base64URL-safe decode of JWT payload
+        let fid: number | null = null;
+        try {
+          const payloadPart = token.split(".")[1] || "";
+          const base64 = payloadPart
+            .replace(/-/g, "+")
+            .replace(/_/g, "/");
+          const padded = base64.padEnd(base64.length + ((4 - (base64.length % 4)) % 4), "=");
+          const json = atob(padded);
+          const payload = JSON.parse(json);
+          fid = typeof payload?.sub === "number" ? payload.sub : null;
+        } catch (e) {
+          console.warn("[QuickAuth] JWT decode failed", e);
+        }
+        console.log("[QuickAuth] token acquired. fid:", fid);
         if (!fid) return;
         setSignedInFid(fid);
 
@@ -129,8 +143,10 @@ export default function CastAirdropPage() {
             pfpUrl: user.pfp_url || user.pfp,
           });
         }
+        console.log("[QuickStart] recent casts fetched:", casts?.length || 0);
         setRecentCasts(casts || []);
       } catch (_e) {
+        console.warn("[QuickStart] quick auth or neynar fetch failed", _e);
         // Non-fatal: feature silently hides
       }
     })();
@@ -971,7 +987,7 @@ export default function CastAirdropPage() {
       </Card>
 
       {/* Signed-in user's quick start box */}
-      {signedInFid && signedInUser && recentCasts.length > 0 && (
+      {signedInUser && (
         <Card className="w-full card-colorful">
           <CardHeader>
             <CardTitle className="text-gray-800 font-display font-bold flex items-center space-x-2">
@@ -988,24 +1004,28 @@ export default function CastAirdropPage() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            <Select
-              label="Or pick one of your recent posts"
-              options={recentCasts.map((c) => ({
-                value: c.hash,
-                label:
-                  (c.text || "").length > 80
-                    ? `${c.text.slice(0, 80)}...`
-                    : c.text || "(no text)",
-              }))}
-              value={selectedRecentHash}
-              onChange={(v) => setSelectedRecentHash(v)}
-              placeholder="Select one of your recent posts"
-            />
+            {recentCasts.length > 0 ? (
+              <Select
+                label="Or pick one of your recent posts"
+                options={recentCasts.map((c) => ({
+                  value: c.hash,
+                  label:
+                    (c.text || "").length > 80
+                      ? `${c.text.slice(0, 80)}...`
+                      : c.text || "(no text)",
+                }))}
+                value={selectedRecentHash}
+                onChange={(v) => setSelectedRecentHash(v)}
+                placeholder="Select one of your recent posts"
+              />
+            ) : (
+              <div className="text-sm text-gray-600">No recent posts found for your account.</div>
+            )}
           </CardContent>
           <CardFooter>
             <Button
               className="w-full btn-colorful"
-              disabled={!selectedRecentHash || loading}
+              disabled={!selectedRecentHash || loading || recentCasts.length === 0}
               onClick={() => {
                 if (!selectedRecentHash || !signedInUser) return;
                 const username = signedInUser.username;
