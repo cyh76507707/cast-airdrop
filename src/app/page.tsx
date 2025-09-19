@@ -25,6 +25,8 @@ import {
   getTokenBalance,
   PREDEFINED_TOKENS,
   TokenBalance,
+  TokenInfo,
+  getTokenInfo,
   uploadWalletsToIPFS,
 } from "@/lib/mintclub";
 import {
@@ -133,6 +135,92 @@ export default function CastAirdropPage() {
   );
   const [approvalHash, setApprovalHash] = useState<`0x${string}` | null>(null);
 
+  // Selected token metadata (predefined or fetched for custom address)
+  const [selectedTokenInfo, setSelectedTokenInfo] = useState<TokenInfo | null>(
+    null
+  );
+
+  // Runtime-resolved labels for predefined tokens with unknown metadata
+  const [predefinedTokenLabels, setPredefinedTokenLabels] = useState<
+    Record<string, string>
+  >({});
+
+  // Fetch real names/symbols for any predefined tokens that have placeholders
+  useEffect(() => {
+    let isCancelled = false;
+    const tokensToResolve = PREDEFINED_TOKENS.filter(
+      (t) => t.name === "Unknown Token" || t.symbol === "UNKNOWN"
+    );
+    if (!tokensToResolve.length) return;
+
+    (async () => {
+      const results = await Promise.allSettled(
+        tokensToResolve.map((t) => getTokenInfo(t.address as `0x${string}`))
+      );
+      if (isCancelled) return;
+      const updates: Record<string, string> = {};
+      results.forEach((res, idx) => {
+        const addr = tokensToResolve[idx].address;
+        if (res.status === "fulfilled" && res.value) {
+          updates[addr] = `${res.value.name} (${res.value.symbol})`;
+          // If the currently selected token matches, update selectedTokenInfo
+          if (
+            airdropForm.tokenAddress &&
+            airdropForm.tokenAddress.toLowerCase() === addr.toLowerCase()
+          ) {
+            setSelectedTokenInfo(res.value);
+          }
+        }
+      });
+      if (Object.keys(updates).length) {
+        setPredefinedTokenLabels((prev) => ({ ...prev, ...updates }));
+      }
+    })();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, []);
+
+  // Resolve token info whenever the token address changes
+  useEffect(() => {
+    const resolveTokenInfo = async () => {
+      const addr = airdropForm.tokenAddress;
+      setSelectedTokenInfo(null);
+      if (!addr || addr === "custom") return;
+
+      const predefined = PREDEFINED_TOKENS.find(
+        (t) => t.address.toLowerCase() === addr.toLowerCase()
+      );
+      if (predefined) {
+        // If predefined has placeholder metadata, fetch real info
+        if (
+          predefined.name === "Unknown Token" ||
+          predefined.symbol === "UNKNOWN"
+        ) {
+          try {
+            const info = await getTokenInfo(addr as `0x${string}`);
+            setSelectedTokenInfo(info || predefined);
+          } catch (_e) {
+            setSelectedTokenInfo(predefined);
+          }
+        } else {
+          setSelectedTokenInfo(predefined);
+        }
+        return;
+      }
+
+      try {
+        const info = await getTokenInfo(addr as `0x${string}`);
+        if (info) setSelectedTokenInfo(info);
+      } catch (_e) {
+        // Silently ignore; UI will fall back to address-only display
+      }
+    };
+
+    resolveTokenInfo();
+  }, [airdropForm.tokenAddress]);
+
   // Airdrop Whitelist related state
   const [selectedActions, setSelectedActions] = useState({
     likes: true,
@@ -168,11 +256,13 @@ export default function CastAirdropPage() {
     walletAddress,
     totalAmount,
     userCount,
+    tokenInfo,
   }: {
     tokenAddress: string;
     walletAddress: string;
     totalAmount: string;
     userCount: number;
+    tokenInfo?: TokenInfo;
   }) => {
     const [loading, setLoading] = useState(false);
     const [balance, setBalance] = useState<TokenBalance | null>(null);
@@ -189,6 +279,15 @@ export default function CastAirdropPage() {
     useEffect(() => {
       hasFetchedRef.current = null;
     }, [tokenAddress]);
+
+    // If better token info arrives (e.g., resolved name/symbol/decimals), refetch
+    useEffect(() => {
+      if (!tokenAddress || tokenAddress === "custom") return;
+      if (hasFetchedRef.current === tokenAddress && tokenInfo) {
+        // Allow re-fetch with improved metadata
+        hasFetchedRef.current = null;
+      }
+    }, [tokenInfo, tokenAddress]);
 
     // Cleanup timeout on unmount
     useEffect(() => {
@@ -221,26 +320,28 @@ export default function CastAirdropPage() {
 
         try {
           // First try to find in predefined tokens
-          let currentTokenInfo = PREDEFINED_TOKENS.find(
-            (token) => token.address === tokenAddress
-          );
+          let currentTokenInfo: TokenInfo | undefined = tokenInfo ||
+            PREDEFINED_TOKENS.find((token) => token.address === tokenAddress);
 
-          // If not found in predefined tokens, create a basic token info
-          if (!currentTokenInfo) {
+          // If not found, or placeholder metadata, fetch from chain
+          if (!currentTokenInfo ||
+              currentTokenInfo.name === "Unknown Token" ||
+              currentTokenInfo.symbol === "UNKNOWN") {
             console.log(
-              "Token not found in predefined list, using default token info..."
+              "Using fetched token info due to missing/placeholder metadata..."
             );
-            currentTokenInfo = {
-              address: tokenAddress as `0x${string}`,
-              name: "Custom Token",
-              symbol: "CUSTOM",
-              decimals: 18,
-              isERC20: true,
-            };
-            console.log(
-              "Using default token info for custom token:",
-              currentTokenInfo
-            );
+            const fetched = await getTokenInfo(tokenAddress as `0x${string}`);
+            if (fetched) {
+              currentTokenInfo = fetched;
+            } else {
+              currentTokenInfo = {
+                address: tokenAddress as `0x${string}`,
+                name: "Unknown Token",
+                symbol: "UNKNOWN",
+                decimals: 18,
+                isERC20: true,
+              };
+            }
           }
 
           if (currentTokenInfo) {
@@ -289,7 +390,7 @@ export default function CastAirdropPage() {
       };
 
       fetchBalance();
-    }, [tokenAddress, walletAddress]);
+    }, [tokenAddress, walletAddress, tokenInfo]);
 
     // Show progress message even when not loading (for success/error states)
     const showProgressMessage = progressMessage && (
@@ -1195,7 +1296,9 @@ export default function CastAirdropPage() {
             options={[
               ...PREDEFINED_TOKENS.map((token) => ({
                 value: token.address,
-                label: `${token.name} (${token.symbol})`,
+                label:
+                  predefinedTokenLabels[token.address] ||
+                  `${token.name} (${token.symbol})`,
                 tokenAddress: token.address,
               })),
               { value: "custom", label: "Custom Token Address" },
@@ -1258,19 +1361,19 @@ export default function CastAirdropPage() {
                       const predefinedToken = PREDEFINED_TOKENS.find(
                         (token) => token.address === airdropForm.tokenAddress
                       );
-                      if (predefinedToken) {
-                        return `${
-                          predefinedToken.symbol
-                        }: ${airdropForm.tokenAddress.slice(
-                          0,
-                          6
-                        )}...${airdropForm.tokenAddress.slice(-6)}`;
-                      } else {
-                        return `Custom Token: ${airdropForm.tokenAddress.slice(
-                          0,
-                          6
-                        )}...${airdropForm.tokenAddress.slice(-6)}`;
+                      const shortAddr = `${airdropForm.tokenAddress.slice(0, 6)}...${airdropForm.tokenAddress.slice(-6)}`;
+                      // Prefer resolved metadata over placeholder
+                      const isPlaceholder = (t?: TokenInfo | null) =>
+                        !t || t.name === "Unknown Token" || t.symbol === "UNKNOWN";
+                      const effective = !isPlaceholder(predefinedToken)
+                        ? predefinedToken
+                        : !isPlaceholder(selectedTokenInfo)
+                        ? selectedTokenInfo
+                        : predefinedToken || selectedTokenInfo;
+                      if (effective) {
+                        return `${effective.name} (${effective.symbol}) · ${shortAddr}`;
                       }
+                      return `Token · ${shortAddr}`;
                     })()}
                   </p>
                   <span className="text-xs text-gray-500 ml-1">🔗</span>
@@ -1280,6 +1383,7 @@ export default function CastAirdropPage() {
                   walletAddress={address || ""}
                   totalAmount={airdropForm.totalAmount}
                   userCount={getFinalUserList().length}
+                  tokenInfo={selectedTokenInfo || undefined}
                 />
               </div>
             )}
@@ -1361,14 +1465,12 @@ export default function CastAirdropPage() {
                 const tokenInfo = PREDEFINED_TOKENS.find(
                   (token) => token.address === airdropForm.tokenAddress
                 );
-                if (tokenInfo) {
-                  const shortAddress = `${airdropForm.tokenAddress.slice(
-                    0,
-                    6
-                  )}...${airdropForm.tokenAddress.slice(-6)}`;
+                const infoToUse = tokenInfo || selectedTokenInfo;
+                const shortAddress = `${airdropForm.tokenAddress.slice(0, 6)}...${airdropForm.tokenAddress.slice(-6)}`;
+                if (infoToUse) {
                   return (
                     <span>
-                      {tokenInfo.symbol} (
+                      {infoToUse.name} ({infoToUse.symbol}) (
                       <a
                         href={`https://basescan.org/token/${airdropForm.tokenAddress}`}
                         target="_blank"
@@ -1381,7 +1483,7 @@ export default function CastAirdropPage() {
                     </span>
                   );
                 }
-                return airdropForm.tokenAddress;
+                return shortAddress;
               })()}
             </span>
           </div>

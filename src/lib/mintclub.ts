@@ -509,6 +509,14 @@ export const PREDEFINED_TOKENS: TokenInfo[] = [
     decimals: 18,
     isERC20: true,
   },
+  // User requested default token (Likes token on Base)
+  {
+    address: "0xbede17c8b0535791d131f0d6b6094b99cf27eb07",
+    name: "likes",
+    symbol: "likes",
+    decimals: 18,
+    isERC20: true,
+  },
 ];
 
 // Upload wallet list to IPFS via server-side API
