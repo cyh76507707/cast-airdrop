@@ -133,7 +133,7 @@ export default function CastAirdropPage() {
         // Parallel fetch user and casts
         const [user, casts] = await Promise.all([
           getNeynarUser(fid),
-          getRecentCastsByFid(fid, 10),
+          getRecentCastsByFid(fid, 10, fid),
         ]);
 
         if (user) {

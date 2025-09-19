@@ -25,34 +25,41 @@ export async function getNeynarUser(fid: number) {
 }
 
 // 최근 캐스트 10개 가져오기 (엔드포인트 폴백 포함)
-export async function getRecentCastsByFid(fid: number, limit = 10) {
+export async function getRecentCastsByFid(
+  fid: number,
+  limit = 10,
+  viewerFid?: number
+) {
   const headers = { 'x-api-key': NEYNAR_API_KEY } as Record<string, string>;
 
-  // Try user-specific endpoint first
-  const tryEndpoints = [
-    `https://api.neynar.com/v2/farcaster/user/casts?fid=${fid}&limit=${limit}`,
-    `https://api.neynar.com/v2/farcaster/casts?fid=${fid}&limit=${limit}`,
-  ];
+  // Correct v2 endpoint (per Neynar docs): /v2/farcaster/feed/user/casts
+  const base = `https://api.neynar.com/v2/farcaster/feed/user/casts`;
+  const url = `${base}?fid=${fid}&limit=${limit}&include_replies=true${
+    viewerFid ? `&viewer_fid=${viewerFid}` : ''
+  }`;
 
-  for (const url of tryEndpoints) {
-    try {
-      const res = await fetch(url, { headers });
-      if (!res.ok) continue;
-      const data = await res.json();
-
-      // Normalize a few possible response shapes
-      const casts = (data?.result?.casts || data?.casts || []) as any[];
-      return casts.map((c: any) => ({
-        hash: c.hash,
-        text: c.text || '',
-        timestamp: c.timestamp,
-      }));
-    } catch (_e) {
-      // try next endpoint
+  try {
+    const res = await fetch(url, { headers });
+    if (!res.ok) {
+      console.warn('getRecentCastsByFid non-OK:', res.status, res.statusText);
+      try {
+        const text = await res.text();
+        console.warn('Response body:', text);
+      } catch {}
+      return [];
     }
-  }
+    const data = await res.json();
 
-  return [] as Array<{ hash: string; text: string; timestamp?: string }>;
+    const casts = (data?.result?.casts || data?.casts || []) as any[];
+    return casts.map((c: any) => ({
+      hash: c.hash,
+      text: c.text || '',
+      timestamp: c.timestamp,
+    }));
+  } catch (e) {
+    console.warn('getRecentCastsByFid error:', e);
+    return [] as Array<{ hash: string; text: string; timestamp?: string }>;
+  }
 }
 
 // 미니앱 알림 전송
