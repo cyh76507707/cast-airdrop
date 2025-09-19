@@ -24,6 +24,37 @@ export async function getNeynarUser(fid: number) {
   return data.users?.[0] || null;
 }
 
+// 최근 캐스트 10개 가져오기 (엔드포인트 폴백 포함)
+export async function getRecentCastsByFid(fid: number, limit = 10) {
+  const headers = { 'x-api-key': NEYNAR_API_KEY } as Record<string, string>;
+
+  // Try user-specific endpoint first
+  const tryEndpoints = [
+    `https://api.neynar.com/v2/farcaster/user/casts?fid=${fid}&limit=${limit}`,
+    `https://api.neynar.com/v2/farcaster/casts?fid=${fid}&limit=${limit}`,
+  ];
+
+  for (const url of tryEndpoints) {
+    try {
+      const res = await fetch(url, { headers });
+      if (!res.ok) continue;
+      const data = await res.json();
+
+      // Normalize a few possible response shapes
+      const casts = (data?.result?.casts || data?.casts || []) as any[];
+      return casts.map((c: any) => ({
+        hash: c.hash,
+        text: c.text || '',
+        timestamp: c.timestamp,
+      }));
+    } catch (_e) {
+      // try next endpoint
+    }
+  }
+
+  return [] as Array<{ hash: string; text: string; timestamp?: string }>;
+}
+
 // 미니앱 알림 전송
 export async function sendNeynarMiniAppNotification(params: { fid: number; title: string; body: string }) {
   // 실제 구현에서는 Neynar의 알림 API를 사용해야 합니다

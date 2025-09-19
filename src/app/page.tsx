@@ -34,6 +34,8 @@ import {
   CastInfo,
   CastUser,
   transformCastToInfo,
+  getNeynarUser,
+  getRecentCastsByFid,
 } from "@/lib/neynar";
 import { sdk } from "@farcaster/miniapp-sdk";
 import React, { useEffect, useRef, useState } from "react";
@@ -91,6 +93,48 @@ export default function CastAirdropPage() {
   const [castInfo, setCastInfo] = useState<CastInfo | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Signed-in user (from Farcaster Mini App Quick Auth)
+  const [signedInFid, setSignedInFid] = useState<number | null>(null);
+  const [signedInUser, setSignedInUser] = useState<
+    | { username: string; displayName: string; pfpUrl?: string }
+    | null
+  >(null);
+  const [recentCasts, setRecentCasts] = useState<
+    Array<{ hash: string; text: string; timestamp?: string }>
+  >([]);
+  const [selectedRecentHash, setSelectedRecentHash] = useState<string>("");
+
+  // Fetch Quick Auth token to get fid and recent casts/profile
+  useEffect(() => {
+    if (!isSDKLoaded || !appReady) return;
+    (async () => {
+      try {
+        const { token } = await sdk.quickAuth.getToken();
+        if (!token) return;
+        const payload = JSON.parse(atob(token.split(".")[1] || ""));
+        const fid = typeof payload?.sub === "number" ? payload.sub : null;
+        if (!fid) return;
+        setSignedInFid(fid);
+
+        // Parallel fetch user and casts
+        const [user, casts] = await Promise.all([
+          getNeynarUser(fid),
+          getRecentCastsByFid(fid, 10),
+        ]);
+
+        if (user) {
+          setSignedInUser({
+            username: user.username || user.fname || "",
+            displayName: user.display_name || user.displayName || user.fname || "",
+            pfpUrl: user.pfp_url || user.pfp,
+          });
+        }
+        setRecentCasts(casts || []);
+      } catch (_e) {
+        // Non-fatal: feature silently hides
+      }
+    })();
+  }, [isSDKLoaded, appReady]);
 
   // Track completion status for each step
   const [completedSteps, setCompletedSteps] = useState<Set<Step>>(
@@ -925,6 +969,56 @@ export default function CastAirdropPage() {
           </Button>
         </CardFooter>
       </Card>
+
+      {/* Signed-in user's quick start box */}
+      {signedInFid && signedInUser && recentCasts.length > 0 && (
+        <Card className="w-full card-colorful">
+          <CardHeader>
+            <CardTitle className="text-gray-800 font-display font-bold flex items-center space-x-2">
+              {signedInUser.pfpUrl ? (
+                <img
+                  src={signedInUser.pfpUrl}
+                  alt={signedInUser.username}
+                  className="w-6 h-6 rounded-full"
+                />
+              ) : null}
+              <span>
+                Welcome back {signedInUser.displayName || signedInUser.username}!
+              </span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <Select
+              label="Or pick one of your recent posts"
+              options={recentCasts.map((c) => ({
+                value: c.hash,
+                label:
+                  (c.text || "").length > 80
+                    ? `${c.text.slice(0, 80)}...`
+                    : c.text || "(no text)",
+              }))}
+              value={selectedRecentHash}
+              onChange={(v) => setSelectedRecentHash(v)}
+              placeholder="Select one of your recent posts"
+            />
+          </CardContent>
+          <CardFooter>
+            <Button
+              className="w-full btn-colorful"
+              disabled={!selectedRecentHash || loading}
+              onClick={() => {
+                if (!selectedRecentHash || !signedInUser) return;
+                const username = signedInUser.username;
+                const url = `https://warpcast.com/${username}/${selectedRecentHash}`;
+                setCastUrl(url);
+                handleUrlSubmit();
+              }}
+            >
+              Continue with this post
+            </Button>
+          </CardFooter>
+        </Card>
+      )}
 
       {/* What is DropCast? Info Box */}
       <Card className="w-full card-colorful">
