@@ -27,7 +27,7 @@ export async function getNeynarUser(fid: number) {
 // username -> user (for search)
 export async function getNeynarUserByUsername(username: string) {
   const headers = { 'x-api-key': NEYNAR_API_KEY } as Record<string, string>;
-  const uname = username.replace(/^@/, '').trim();
+  const uname = username.replace(/^@/, '').trim().toLowerCase();
   if (!uname) return null;
 
   // Preferred: by_username endpoint
