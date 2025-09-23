@@ -36,6 +36,7 @@ import {
   transformCastToInfo,
   getNeynarUser,
   getRecentCastsByFid,
+  getNeynarUserByUsername,
 } from "@/lib/neynar";
 import { sdk } from "@farcaster/miniapp-sdk";
 import React, { useEffect, useRef, useState } from "react";
@@ -103,6 +104,15 @@ export default function CastAirdropPage() {
     Array<{ hash: string; text: string; timestamp?: string }>
   >([]);
   const [selectedRecentHash, setSelectedRecentHash] = useState<string>("");
+  // Other user search state
+  const [otherUsername, setOtherUsername] = useState<string>("");
+  const [otherUser, setOtherUser] = useState<any | null>(null);
+  const [otherCasts, setOtherCasts] = useState<
+    Array<{ hash: string; text: string; timestamp?: string }>
+  >([]);
+  const [selectedOtherHash, setSelectedOtherHash] = useState<string>("");
+  const [searching, setSearching] = useState(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
 
   // Fetch Quick Auth token to get fid and recent casts/profile
   useEffect(() => {
@@ -1042,6 +1052,110 @@ export default function CastAirdropPage() {
           </CardFooter>
         </Card>
       )}
+
+      {/* Choose from others */}
+      <Card className="w-full card-colorful">
+        <CardHeader>
+          <CardTitle className="text-gray-800 font-display font-bold flex items-center space-x-2">
+            <span>Choose from others</span>
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="space-y-2">
+            <Input
+              label="Search username"
+              placeholder="e.g. project7"
+              value={otherUsername}
+              onChange={(e) => setOtherUsername(e.target.value)}
+            />
+            <Button
+              onClick={async () => {
+                const uname = otherUsername.replace(/^@/, "").trim();
+                if (!uname) {
+                  setSearchError("Please enter a username");
+                  return;
+                }
+                setSearching(true);
+                setSearchError(null);
+                setOtherUser(null);
+                setOtherCasts([]);
+                setSelectedOtherHash("");
+                try {
+                  const user = await getNeynarUserByUsername(uname);
+                  if (!user) {
+                    setSearchError("User not found");
+                    return;
+                  }
+                  setOtherUser(user);
+                  const fid = user.fid as number;
+                  const casts = await getRecentCastsByFid(fid, 10, signedInFid ?? undefined);
+                  setOtherCasts(casts || []);
+                } catch (e) {
+                  setSearchError("Failed to search. Please try again.");
+                } finally {
+                  setSearching(false);
+                }
+              }}
+              loading={searching}
+              className="w-full"
+            >
+              Search
+            </Button>
+            {searchError && (
+              <div className="text-sm text-red-600">{searchError}</div>
+            )}
+          </div>
+
+          {otherUser && (
+            <div className="flex items-center space-x-2">
+              {otherUser.pfp_url && (
+                <img
+                  src={otherUser.pfp_url}
+                  alt={otherUser.username}
+                  className="w-6 h-6 rounded-full"
+                />
+              )}
+              <div className="text-sm text-gray-700 font-medium">
+                @{otherUser.username || otherUser.fname} ({otherCasts.length} posts)
+              </div>
+            </div>
+          )}
+
+          {otherUser && (
+            otherCasts.length > 0 ? (
+              <Select
+                label="Select a recent post"
+                options={otherCasts.map((c) => ({
+                  value: c.hash,
+                  label:
+                    (c.text || "").length > 80
+                      ? `${c.text.slice(0, 80)}...`
+                      : c.text || "(no text)",
+                }))}
+                value={selectedOtherHash}
+                onChange={(v) => setSelectedOtherHash(v)}
+                placeholder="Choose a post"
+              />
+            ) : (
+              <div className="text-sm text-gray-600">No recent posts found for this user.</div>
+            )
+          )}
+        </CardContent>
+        <CardFooter>
+          <Button
+            className="w-full btn-colorful"
+            disabled={!otherUser || !selectedOtherHash}
+            onClick={() => {
+              if (!otherUser || !selectedOtherHash) return;
+              const username = otherUser.username || otherUser.fname;
+              const url = `https://warpcast.com/${username}/${selectedOtherHash}`;
+              void handleUrlSubmit(url);
+            }}
+          >
+            Continue with this post
+          </Button>
+        </CardFooter>
+      </Card>
 
       {/* What is DropCast? Info Box */}
       <Card className="w-full card-colorful">

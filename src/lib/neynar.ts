@@ -24,6 +24,45 @@ export async function getNeynarUser(fid: number) {
   return data.users?.[0] || null;
 }
 
+// username -> user (for search)
+export async function getNeynarUserByUsername(username: string) {
+  const headers = { 'x-api-key': NEYNAR_API_KEY } as Record<string, string>;
+  const uname = username.replace(/^@/, '').trim();
+  if (!uname) return null;
+
+  // Try bulk by usernames
+  try {
+    const res = await fetch(
+      `https://api.neynar.com/v2/farcaster/user/bulk?usernames=${encodeURIComponent(
+        uname
+      )}`,
+      { headers }
+    );
+    if (res.ok) {
+      const data = await res.json();
+      const user = data?.users?.[0];
+      if (user) return user;
+    }
+  } catch {}
+
+  // Fallback: search API
+  try {
+    const res = await fetch(
+      `https://api.neynar.com/v2/farcaster/users/search?q=${encodeURIComponent(
+        uname
+      )}&limit=1`,
+      { headers }
+    );
+    if (res.ok) {
+      const data = await res.json();
+      const user = data?.result?.users?.[0] || data?.users?.[0];
+      if (user) return user;
+    }
+  } catch {}
+
+  return null;
+}
+
 // 최근 캐스트 10개 가져오기 (엔드포인트 폴백 포함)
 export async function getRecentCastsByFid(
   fid: number,
