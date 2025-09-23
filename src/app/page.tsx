@@ -143,7 +143,7 @@ export default function CastAirdropPage() {
         // Parallel fetch user and casts
         const [user, casts] = await Promise.all([
           getNeynarUser(fid),
-          getRecentCastsByFid(fid, 10, fid),
+          getRecentCastsByFid(fid, 20, fid),
         ]);
 
         if (user) {
@@ -1088,7 +1088,7 @@ export default function CastAirdropPage() {
                   }
                   setOtherUser(user);
                   const fid = user.fid as number;
-                  const casts = await getRecentCastsByFid(fid, 10, signedInFid ?? undefined);
+                  const casts = await getRecentCastsByFid(fid, 20, signedInFid ?? undefined);
                   setOtherCasts(casts || []);
                 } catch (e) {
                   setSearchError("Failed to search. Please try again.");
