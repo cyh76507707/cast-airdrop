@@ -30,20 +30,24 @@ export async function getNeynarUserByUsername(username: string) {
   const uname = username.replace(/^@/, '').trim();
   if (!uname) return null;
 
-  // Try bulk by usernames
+  // Preferred: by_username endpoint
   try {
     const res = await fetch(
-      `https://api.neynar.com/v2/farcaster/user/bulk?usernames=${encodeURIComponent(
+      `https://api.neynar.com/v2/farcaster/user/by_username?username=${encodeURIComponent(
         uname
       )}`,
       { headers }
     );
     if (res.ok) {
       const data = await res.json();
-      const user = data?.users?.[0];
+      const user = data?.user || data?.result?.user || data;
       if (user) return user;
+    } else {
+      console.warn('getNeynarUserByUsername non-OK:', res.status, res.statusText);
     }
-  } catch {}
+  } catch (e) {
+    console.warn('getNeynarUserByUsername error(by_username):', e);
+  }
 
   // Fallback: search API
   try {
@@ -57,8 +61,12 @@ export async function getNeynarUserByUsername(username: string) {
       const data = await res.json();
       const user = data?.result?.users?.[0] || data?.users?.[0];
       if (user) return user;
+    } else {
+      console.warn('getNeynarUserByUsername non-OK(search):', res.status, res.statusText);
     }
-  } catch {}
+  } catch (e) {
+    console.warn('getNeynarUserByUsername error(search):', e);
+  }
 
   return null;
 }
