@@ -547,31 +547,35 @@ export default function CastAirdropPage() {
   // Show wallet connection requirement message if wallet is not connected
   const _showWalletRequirement = !isConnected && currentStep === "airdrop-form";
 
-  const handleUrlSubmit = async () => {
-    if (!castUrl.trim()) {
+  const handleUrlSubmit = async (overrideUrl?: string) => {
+    const urlToUse = (overrideUrl ?? castUrl).trim();
+    if (!urlToUse) {
       setError("Please enter a valid Farcaster post URL");
       return;
     }
 
     // Basic URL format validation
     if (
-      !castUrl.includes("farcaster.xyz") &&
-      !castUrl.includes("warpcast.com")
+      !urlToUse.includes("farcaster.xyz") &&
+      !urlToUse.includes("warpcast.com")
     ) {
       setError("Please enter a valid Farcaster post URL");
       return;
     }
+
+    // Keep input in sync but do not rely on it during this call
+    if (overrideUrl) setCastUrl(urlToUse);
 
     // Continue button always loads new data (refresh)
     setLoading(true);
     setError(null);
 
     try {
-      console.log("🔍 Starting analysis for URL:", castUrl);
+      console.log("🔍 Starting analysis for URL:", urlToUse);
 
       // Prefetch with SWR to seed cache and fetch data once
       const { castData, engagementData } = await prefetchNeynarFromUrl(
-        castUrl,
+        urlToUse,
         "url"
       );
       const castInfoData = transformCastToInfo(castData);
@@ -579,7 +583,7 @@ export default function CastAirdropPage() {
       if (engagementData) setEngagement(engagementData);
       setCastInfo(castInfoData);
       if (engagementData) setUsers(engagementData.totalUsers);
-      setCastHash(castData?.cast?.hash || castUrl);
+      setCastHash(castData?.cast?.hash || urlToUse);
 
       // Reset Airdrop Whitelist state for new data
       setSelectedActions({
@@ -977,7 +981,7 @@ export default function CastAirdropPage() {
         </CardContent>
         <CardFooter>
           <Button
-            onClick={handleUrlSubmit}
+            onClick={() => void handleUrlSubmit()}
             loading={loading}
             className="w-full"
           >
@@ -1030,8 +1034,7 @@ export default function CastAirdropPage() {
                 if (!selectedRecentHash || !signedInUser) return;
                 const username = signedInUser.username;
                 const url = `https://warpcast.com/${username}/${selectedRecentHash}`;
-                setCastUrl(url);
-                handleUrlSubmit();
+                void handleUrlSubmit(url);
               }}
             >
               Continue with this post
