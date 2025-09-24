@@ -517,6 +517,14 @@ export const PREDEFINED_TOKENS: TokenInfo[] = [
     decimals: 18,
     isERC20: true,
   },
+  // RUNNER token
+  {
+    address: "0x18b6f6049A0af4Ed2BBe0090319174EeeF89f53a",
+    name: "RUNNER",
+    symbol: "RUNNER",
+    decimals: 18,
+    isERC20: true,
+  },
 ];
 
 // Upload wallet list to IPFS via server-side API
