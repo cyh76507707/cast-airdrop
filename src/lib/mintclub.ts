@@ -525,6 +525,14 @@ export const PREDEFINED_TOKENS: TokenInfo[] = [
     decimals: 18,
     isERC20: true,
   },
+  // NAMI token
+  {
+    address: "0xE0a04ae671abFD3FCE2737ad53999E797f28CCad",
+    name: "NAMI",
+    symbol: "NAMI",
+    decimals: 18,
+    isERC20: true,
+  },
 ];
 
 // Upload wallet list to IPFS via server-side API
