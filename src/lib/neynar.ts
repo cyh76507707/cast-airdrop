@@ -81,7 +81,7 @@ export async function getRecentCastsByFid(
 
   // Correct v2 endpoint (per Neynar docs): /v2/farcaster/feed/user/casts
   const base = `https://api.neynar.com/v2/farcaster/feed/user/casts`;
-  const url = `${base}?fid=${fid}&limit=${limit}&include_replies=true${
+  const url = `${base}?fid=${fid}&limit=${limit}&include_replies=false${
     viewerFid ? `&viewer_fid=${viewerFid}` : ''
   }`;
 
