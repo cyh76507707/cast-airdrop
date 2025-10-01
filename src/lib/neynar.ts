@@ -98,7 +98,9 @@ export async function getRecentCastsByFid(
     const data = await res.json();
 
     const casts = (data?.result?.casts || data?.casts || []) as any[];
-    return casts.map((c: any) => ({
+    // Keep only top-level posts (exclude comments/replies)
+    const postsOnly = casts.filter((c: any) => !c?.parent_hash);
+    return postsOnly.map((c: any) => ({
       hash: c.hash,
       text: c.text || '',
       timestamp: c.timestamp,
